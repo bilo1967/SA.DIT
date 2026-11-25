@@ -1,5 +1,5 @@
 // SA.DIT - one desktop app, two roles, compact interface, PeerJS and local projection.
-import { Call } from "/wails/runtime.js";
+import { Call, Events } from "/wails/runtime.js";
 import { initSettings } from "./settings.js";
 
 const $ = id => document.getElementById(id);
@@ -14,7 +14,9 @@ let projectionPC = null;
 let pendingProjectionICE = [];
 let projectionHandshakeTimer = null;
 let projectionConnected = false;
-const projectionChannel = new BroadcastChannel("sadit-projection");
+let projectionSession = null;
+const projectionEmit = (name, payload={}) => Events.Emit("sadit:projection:" + name, payload)
+  .catch(error => log("Errore di comunicazione con la proiezione.", error.message, "error"));
 
 function log(message, technical = "", level = "info") {
   const item = document.createElement("div");
@@ -51,7 +53,8 @@ function connectionActive(yes) {
   $("chatText").disabled = !yes;
   $("sendChat").disabled = !yes;
   $("chatPresence").textContent = yes ? "Connessa" : "Non connessa";
-  $("deviceSelect").disabled = yes && role === "room";
+  // The room must be able to change its microphone during a session.
+  $("deviceSelect").disabled = false;
 }
 function newRole(next) {
   disconnect(false);
@@ -116,9 +119,11 @@ function attachData(connection) {
     if (payload && payload.type === "chat" && typeof payload.text === "string") addMessage(payload.text.slice(0, 2000));
   });
   data.on("close", () => {
-    connectionActive(false);
-    setStatus("Controparte scollegata", "waiting");
-    log("La controparte si è scollegata.");
+    // Clear the old data connection as well: otherwise the interpreter rejects
+    // the next connection and the new chat is permanently disabled.
+    if (data !== connection) return;
+    log("La controparte si è scollegata. Sessione pronta per un nuovo collegamento.");
+    disconnect(false);
   });
   data.on("error", error => failure("La chat non è disponibile.", error));
 }
@@ -176,12 +181,14 @@ function disconnect(writeLog = true) {
   stopTracks();
   remoteStream = null;
   busy = false;
-  projectionChannel.postMessage({type:"stop"});
+  projectionEmit("stop");
   try { projectionPC?.close(); } catch {}
   projectionPC = null;
   pendingProjectionICE = [];
   projectionConnected = false;
+  projectionSession = null;
   clearTimeout(projectionHandshakeTimer);
+  projectionHandshakeTimer = null;
   connectionActive(false);
   $("startInterpreter").disabled = false;
   $("joinRoom").disabled = false;
@@ -267,7 +274,13 @@ async function joinRoom() {
           startProjection().catch(e => failure("Non riesco ad aprire la proiezione.", e));
         });
         media.on("error", e => failure("Non riesco a ricevere il video dell'interprete.", e));
-        media.on("close", () => { projectionChannel.postMessage({type:"stop"}); remoteStream = null; });
+        media.on("close", () => {
+          projectionEmit("stop");
+          remoteStream = null;
+          // If the data channel is still open, preserve chat; the session
+          // can be deliberately disconnected and established again.
+          if (data?.open) log("Flusso video terminato. Puoi disconnettere e riconnettere la sessione.");
+        });
       });
     });
   } catch (e) {
@@ -282,7 +295,7 @@ async function startProjection() {
 }
 function probeProjection() {
   if (!remoteStream || projectionConnected) return;
-  projectionChannel.postMessage({type:"probe"});
+  projectionEmit("probe");
   clearTimeout(projectionHandshakeTimer);
   projectionHandshakeTimer = setTimeout(probeProjection, 800);
 }
@@ -294,42 +307,81 @@ function sendChat(event) {
   addMessage(text, true);
   $("chatText").value = "";
 }
+// Relay the received video to an independent Wails window using local WebRTC.
+// Only signaling goes through the Wails event bus; frames stay on WebRTC.
 function sendProjectionOffer() {
-  if (!remoteStream || role !== "room") return;
+  if (!remoteStream || role !== "room" || projectionConnected) return;
+  const tracks = remoteStream.getVideoTracks().filter(track => track.readyState === "live");
+  if (!tracks.length) {
+    failure("L'interprete è collegato ma non sta inviando un video.");
+    return;
+  }
   clearTimeout(projectionHandshakeTimer);
+  projectionHandshakeTimer = null;
   projectionConnected = true;
   try { projectionPC?.close(); } catch {}
   pendingProjectionICE = [];
-  projectionPC = new RTCPeerConnection({iceServers:[]});
-  projectionPC.onconnectionstatechange = () => {
-    if (projectionPC?.connectionState === "connected") log("Finestra di proiezione collegata.");
-    if (projectionPC?.connectionState === "failed") failure("Il video non raggiunge la finestra di proiezione.");
+  projectionSession = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+  const session = projectionSession;
+  const pc = new RTCPeerConnection({iceServers:[]});
+  projectionPC = pc;
+  for (const track of tracks) pc.addTrack(track, remoteStream);
+  pc.onconnectionstatechange = () => {
+    if (projectionPC !== pc) return;
+    if (pc.connectionState === "connected") log("Video collegato alla finestra di proiezione.");
+    if (pc.connectionState === "failed") {
+      projectionConnected = false;
+      failure("Il video non raggiunge la finestra di proiezione.",
+        new Error("ICE locale: failed"));
+    }
   };
-  for (const track of remoteStream.getVideoTracks()) projectionPC.addTrack(track, remoteStream);
-  projectionPC.onicecandidate = event => {
-    if (event.candidate) projectionChannel.postMessage({type:"candidate-to-projection", candidate:event.candidate.toJSON()});
+  pc.onicecandidate = event => {
+    if (event.candidate) projectionEmit("candidate-to-projection",
+      {session, candidate:event.candidate.toJSON()});
   };
-  projectionPC.createOffer().then(offer => projectionPC.setLocalDescription(offer)).then(() => {
-    projectionChannel.postMessage({type:"offer",sdp:projectionPC.localDescription});
-  }).catch(e => failure("Impossibile alimentare la finestra di proiezione.", e));
+  pc.createOffer()
+    .then(offer => pc.setLocalDescription(offer))
+    .then(() => projectionEmit("offer",{session, sdp:pc.localDescription}))
+    .catch(error => {
+      projectionConnected = false;
+      failure("Impossibile avviare la proiezione locale.", error);
+    });
 }
-projectionChannel.onmessage = async event => {
+
+Events.On("sadit:projection:ready", () => {
+  if (role === "room" && remoteStream && !projectionConnected) sendProjectionOffer();
+});
+Events.On("sadit:projection:answer", async event => {
   const msg = event.data || {};
-  if (msg.type === "ready" && !projectionConnected) sendProjectionOffer();
-  if (msg.type === "answer" && projectionPC) {
-    try {
-      await projectionPC.setRemoteDescription(msg.sdp);
-      for(const candidate of pendingProjectionICE) await projectionPC.addIceCandidate(candidate);
-      pendingProjectionICE = [];
-    } catch(e) { failure("Errore nella proiezione locale.",e); }
-  }
-  if (msg.type === "candidate-to-room" && projectionPC) {
-    try {
-      if(projectionPC.remoteDescription) await projectionPC.addIceCandidate(msg.candidate);
-      else pendingProjectionICE.push(msg.candidate);
-    } catch(e) { log("Candidato ICE locale non valido.",e.message); }
-  }
-};
+  if (!projectionPC || !projectionSession || msg.session !== projectionSession) return;
+  try {
+    await projectionPC.setRemoteDescription(msg.sdp);
+    const waiting = pendingProjectionICE.splice(0);
+    for (const candidate of waiting) await projectionPC.addIceCandidate(candidate);
+    log("La finestra di proiezione ha accettato il collegamento video.");
+  } catch (error) { failure("Errore durante il collegamento video locale.", error); }
+});
+Events.On("sadit:projection:candidate-to-room", async event => {
+  const msg = event.data || {};
+  if (!projectionPC || !projectionSession || msg.session !== projectionSession) return;
+  try {
+    if (projectionPC.remoteDescription) await projectionPC.addIceCandidate(msg.candidate);
+    else pendingProjectionICE.push(msg.candidate);
+  } catch (error) { log("Candidato ICE locale non valido.", error.message, "error"); }
+});
+Events.On("sadit:projection:status", event => {
+  const msg = event.data || {};
+  if (msg.session !== projectionSession) return;
+  if (msg.status === "track") log("La finestra di proiezione ha ricevuto la traccia video.");
+  else if (msg.status === "connected") log("Proiezione attiva.");
+  else failure("La connessione della finestra di proiezione si è interrotta.",
+    new Error(String(msg.status)));
+});
+Events.On("sadit:projection:error", event => {
+  const msg = event.data || {};
+  if (msg.session === projectionSession)
+    failure("Errore nella finestra di proiezione.", new Error(msg.message || "Errore sconosciuto"));
+});
 $("chooseInterpreter").onclick = () => newRole("interpreter");
 $("chooseRoom").onclick = () => newRole("room");
 $("changeRole").onclick = () => {
