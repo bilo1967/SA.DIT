@@ -21,9 +21,12 @@ let reserveVideoTimer = null;
 const projectionEmit = (name, payload={}) => Events.Emit("sadit:projection:" + name, payload)
   .catch(error => log("Errore di comunicazione con la proiezione.", error.message, "error"));
 
+// Keep the full log in the DOM; display only user-facing events.
+const essentialLog = /modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
   const item = document.createElement("div");
-  item.className = "log-entry " + level;
+  const visible = level === "error" || essentialLog.test(message);
+  item.className = "log-entry " + level + (visible ? "" : " diagnostic");
   const time = document.createElement("span");
   time.className = "time";
   time.textContent = new Date().toLocaleTimeString();
@@ -74,8 +77,6 @@ function newRole(next) {
     ? '<svg viewBox="0 0 24 24"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="13" width="4" height="8" rx="2"/><rect x="17" y="13" width="4" height="8" rx="2"/></svg>'
     : '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M7 21h10"/></svg>';
   $("deviceSelect").replaceChildren(new Option("Predefinito", ""));
-  $("videoDiagnostic").classList.toggle("hidden", role !== "room");
-  if (role === "room") $("videoDiagnosticStatus").textContent = "In attesa di connessione";
   refreshDevices(true);
   setStatus("Non connesso");
   log(role === "interpreter" ? "Modalità Interprete pronta." : "Modalità Sala pronta.");
@@ -205,10 +206,6 @@ function disconnect(writeLog = true) {
   reserveVideoTimer = null;
   stopTracks();
   remoteStream = null;
-  const preview = $("remoteVideoPreview");
-  preview.pause();
-  preview.srcObject = null;
-  $("videoDiagnosticStatus").textContent = "Nessun video";
   clearInterval(videoStatsTimer);
   videoStatsTimer = null;
   busy = false;
@@ -232,7 +229,6 @@ function disconnect(writeLog = true) {
   $("stopSharing").classList.add("hidden");
   $("pinInput").disabled = false;
   $("pinDisplay").textContent = "—";
-  $("videoDiagnostic").classList.toggle("hidden", role !== "room");
   $("copyPIN").disabled = true;
   $("incomingAudio").srcObject = null;
   if (writeLog) log("Sessione terminata.");
@@ -348,24 +344,13 @@ async function joinRoom() {
         media = peer.call(id, localStream);
         if (!media) { failure("Non riesco a iniziare lo scambio multimediale."); return; }
         observeMediaConnection(media, "Sala");
-        $("videoDiagnosticStatus").textContent = "Chiamata inviata, attesa video";
+
         media.on("stream", stream => {
           if (media === null) return;
           remoteStream = stream;
           const videoTracks = stream.getVideoTracks();
           const audioTracks = stream.getAudioTracks();
           log("WebRTC: flusso remoto ricevuto.", "Video: " + videoTracks.length + " · Audio: " + audioTracks.length);
-          $("videoDiagnostic").classList.remove("hidden");
-          const preview = $("remoteVideoPreview");
-          preview.srcObject = stream;
-          $("videoDiagnosticStatus").textContent = videoTracks.length ? "Traccia presente" : "Nessuna traccia video";
-          preview.play().then(() => log("Anteprima locale avviata.")).catch(e => failure("Anteprima video non avviata.", e));
-          preview.onloadedmetadata = () => log("Anteprima: metadati video ricevuti.",
-            preview.videoWidth + " × " + preview.videoHeight);
-          preview.onplaying = () => {
-            $("videoDiagnosticStatus").textContent = "Riproduzione attiva";
-            log("Anteprima: riproduzione video attiva.", preview.videoWidth + " × " + preview.videoHeight);
-          };
           for (const track of videoTracks) {
             log("Traccia video remota.", "ID: " + track.id + " · Stato: " + track.readyState + " · Muted: " + track.muted);
             track.onunmute = () => log("Traccia video: arrivano dati.");
@@ -446,9 +431,7 @@ function observeMediaConnection(call, side) {
       " · Signaling=" + pc.signalingState +
       " · RX=[" + incoming.join(", ") + "]" +
       " · TX=[" + outgoing.join(", ") + "]");
-    if (side === "Sala" && !remoteStream && pc.getReceivers().some(r => r.track.kind === "video")) {
-      $("videoDiagnosticStatus").textContent = "Traccia video rilevata, attesa dati";
-    }
+
   }, 2500);
   call.on("error", error => {
     if (media === call) log(side + ": errore chiamata multimediale.", error.message, "error");
@@ -471,7 +454,7 @@ async function reportVideoStats() {
     log("Diagnostica video remoto.", "Byte: " + (s.bytesReceived ?? "?") +
       " · Frame decodificati: " + (s.framesDecoded ?? "?") +
       " · Frame ricevuti: " + (s.framesReceived ?? "?") +
-      " · Risoluzione: " + ($("remoteVideoPreview").videoWidth || 0) + "×" + ($("remoteVideoPreview").videoHeight || 0));
+      " · Risoluzione ricevuta: " + (s.frameWidth ?? "?") + "×" + (s.frameHeight ?? "?"));
   } catch(e) { log("Non riesco a leggere le statistiche video.", e.message, "error"); }
 }
 

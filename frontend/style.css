@@ -15,7 +15,7 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 .role-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px;width:min(700px,90%)}
 .role-card{height:172px;padding:24px;text-align:left;display:flex;flex-direction:column;gap:10px;border:1px solid #cddce8;background:white;border-radius:12px;box-shadow:0 3px 12px #26384a0b}
 .role-card:hover{border-color:#3f8dbb;background:#f7fbff}.role-card strong{font-size:20px;color:#176a9f}.role-card span:last-child{color:#63778a}.role-icon{font-size:24px;color:#397eab}
-.workspace{flex:1;display:grid;grid-template-columns:minmax(370px,45%) minmax(380px,55%);min-height:0;padding:12px;gap:12px}
+.workspace{flex:1;display:grid;grid-template-columns:minmax(430px,3fr) minmax(320px,2fr);min-height:0;padding:12px;gap:12px}
 .left-pane,.chat-pane{background:#fff;border:1px solid #d6e2ed;border-radius:9px;min-height:0;overflow:hidden}
 .left-pane{display:flex;flex-direction:column}.primary-controls{padding:15px 17px;flex:none;border-bottom:1px solid #e3eaf1}
 .primary-controls h2{margin-bottom:12px}.pin-display{display:flex;align-items:center;gap:12px;padding:9px 0}.pin-display strong{font-size:24px;letter-spacing:3px;color:#176a9f}
@@ -47,14 +47,12 @@ fieldset{border:1px solid #dae5ed;border-radius:8px;margin:12px 0;padding:12px}l
 #changeSharing{background:#e6f3fc;border-color:#8fbedb;color:#155d88}
 #stopSharing{color:#a64747}
 
-/* Temporary room-side video diagnostic, inside the existing compact left pane. */
-.video-diagnostic{margin-top:8px;border:1px solid #d3e1ec;border-radius:7px;overflow:hidden;background:#eff5fa}
-.video-diagnostic-header{padding:4px 8px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#3b607d}
-.video-diagnostic video{width:100%;height:120px;background:#161c24;object-fit:contain;display:block}
-
 /* Keep controls and log independently scrollable in the fixed-height desktop view. */
 .left-pane{min-height:0;overflow:hidden}
 .primary-controls{min-height:0;max-height:calc(100% - 145px);overflow-y:auto;overscroll-behavior:contain}
 .log-section{min-height:145px;flex:1 1 145px;overflow:hidden}
 .log-list{min-height:0;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .log-actions{display:flex;align-items:center;gap:8px}
+
+/* Technical entries remain available for Copy, but do not clutter the UI. */
+.log-entry.diagnostic,.log-entry .detail{display:none}
