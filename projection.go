@@ -20,7 +20,7 @@ func (s *ProjectionService) Open() {
         Height: 240,
         MinWidth: 360,
         MinHeight: 120,
-        AlwaysOnTop: true,
+        AlwaysOnTop: false,
     })
     screen.Center()
     screen.Show()
