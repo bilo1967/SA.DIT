@@ -32,19 +32,40 @@ type Preferences struct {
 	OutputDeviceID string `json:"outputDeviceId"`
 }
 
-// ConfigService persists JSON files under the user's app-data directory.
+// ConfigService reads AppData first, then the executable directory.
 type ConfigService struct{}
 
-func configDir() (string, error) {
-	base, err := os.UserConfigDir()
-	if err != nil { return "", err }
-	return filepath.Join(base, "SA.DIT"), nil
+// configDirs returns directories in lookup priority order.
+func configDirs() (string, string, error) {
+	userBase, err := os.UserConfigDir()
+	if err != nil { return "", "", err }
+	executable, err := os.Executable()
+	if err != nil { return "", "", err }
+	return filepath.Join(userBase, "SA.DIT"), filepath.Dir(executable), nil
+}
+
+// resolveConfigPath chooses an existing config from AppData or beside the EXE.
+// If neither exists, save a newly created configuration into AppData.
+func resolveConfigPath(file, appDataDir, executableDir string) (string, error) {
+	if file != "signaling.json" && file != "preferences.json" {
+		return "", fmt.Errorf("unsupported config filename: %s", file)
+	}
+	for _, dir := range []string{appDataDir, executableDir} {
+		path := filepath.Join(dir, file)
+		info, err := os.Stat(path)
+		if err == nil {
+			if info.IsDir() { return "", fmt.Errorf("%s is a directory", path) }
+			return path, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) { return "", err }
+	}
+	return filepath.Join(appDataDir, file), nil
 }
 
 func configPath(file string) (string, error) {
-	dir, err := configDir()
+	appDataDir, executableDir, err := configDirs()
 	if err != nil { return "", err }
-	return filepath.Join(dir, file), nil
+	return resolveConfigPath(file, appDataDir, executableDir)
 }
 
 func defaultSignaling() SignalingConfig {
