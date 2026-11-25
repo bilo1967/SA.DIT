@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SA.DIT - Media validation</title>
+<style>
+:root { font: 15px/1.45 system-ui,Segoe UI,sans-serif; color:#e8edf4; background:#111822; }
+* { box-sizing:border-box; }
+body { margin:0; padding:18px; }
+header { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+h1 { font-size:24px; margin:0; letter-spacing:.03em; }
+h2 { font-size:16px; margin:0 0 10px; }
+p { margin:5px 0 12px; color:#aab9ca; }
+small { color:#96a7b8; }
+main { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+.panel { background:#1b2634; border:1px solid #344558; border-radius:10px; padding:14px; min-width:0; }
+.wide { grid-column:1/-1; }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+button,select { background:#293c51; color:#fff; border:1px solid #53708e; padding:9px 11px; border-radius:6px; font:inherit; }
+button { cursor:pointer; }
+button:hover { background:#35516d; }
+button:disabled { opacity:.5; cursor:default; }
+button.primary { background:#176f9c; border-color:#399ccf; }
+textarea { resize:vertical; width:100%; min-height:84px; padding:8px; font:12px/1.4 ui-monospace,Consolas,monospace; border-radius:6px; border:1px solid #50647b; background:#0e151e; color:#d6e7fb; }
+label { display:block; color:#bbcce0; font-size:13px; margin:8px 0 4px; }
+video { width:100%; max-height:285px; background:#070b0f; border-radius:6px; object-fit:contain; }
+#log { white-space:pre-wrap; overflow-wrap:anywhere; background:#0c131c; border-radius:5px; padding:9px; min-height:66px; max-height:110px; overflow:auto; color:#aec8dc; font:12px/1.4 ui-monospace,Consolas,monospace; }
+#state { color:#70d7b4; font-weight:600; }
+.hidden { display:none !important; }
+@media(max-width:700px) { main { grid-template-columns:1fr; } .wide { grid-column:auto; } }
+</style>
+</head>
+<body>
+<header><h1>SA.DIT <small>Media validation</small></h1><span id="state">Pronto</span></header>
+<p>Prototipo senza server di signaling: scambia manualmente l'offerta e la risposta tra le due istanze.</p>
+<div class="row">
+<label for="role">Modalità</label>
+<select id="role"><option value="project">Proietta (interprete)</option><option value="receive">Riceve (PC remoto)</option></select>
+<button id="reset">Termina / ricomincia</button>
+</div>
+<main>
+<section class="panel">
+<h2 id="step1">1. Sorgente multimediale</h2>
+<div id="projectControls">
+<p>Seleziona una finestra/applicazione o uno schermo. Il PC remoto ne riceverà il video.</p>
+<button class="primary" id="offer">Condividi finestra e crea offerta</button>
+</div>
+<div id="receiveControls" class="hidden">
+<p>L'audio di questo PC sarà inviato all'interprete.</p>
+<label for="audioSource">Sorgente audio</label>
+<select id="audioSource"><option value="microphone">Microfono</option><option value="system">Audio condiviso dello schermo (sperimentale)</option></select>
+<p><small>Per l'audio di sistema il selettore potrebbe richiedere la condivisione di uno schermo/scheda. La disponibilità dipende da WebView2.</small></p>
+<button class="primary" id="answer">Applica offerta e crea risposta</button>
+</div>
+<label for="incoming">Segnalazione ricevuta dall'altra istanza</label>
+<textarea id="incoming" placeholder="Incolla qui l'offerta o la risposta ricevuta"></textarea>
+<div id="projectAnswer" class="row">
+<button id="applyAnswer">Applica risposta</button>
+</div>
+</section>
+<section class="panel">
+<h2>2. Invia all'altra istanza</h2>
+<p>Copia il testo completo qui sotto e incollalo nell'altra istanza.</p>
+<textarea id="outgoing" readonly placeholder="L'offerta o la risposta apparirà qui"></textarea>
+<div class="row"><button id="copy">Copia segnalazione</button><small id="copyStatus"></small></div>
+<p><small>Le informazioni di connessione possono includere indirizzi IP locali: condividile solo con la controparte prevista.</small></p>
+</section>
+<section class="panel wide">
+<div class="row" style="justify-content:space-between"><h2>3. Flusso ricevuto</h2><small id="connection">Non connesso</small></div>
+<video id="remoteVideo" autoplay playsinline controls class="hidden"></video>
+<audio id="remoteAudio" autoplay playsinline></audio>
+<div id="noVideo"><p>Il video inviato dall'interprete apparirà qui. Sul PC dell'interprete sarà disponibile soltanto l'audio remoto.</p></div>
+<div class="row">
+<label for="outputDevice">Uscita audio interprete</label>
+<select id="outputDevice"><option value="">Dispositivo predefinito</option></select>
+<button id="devices">Aggiorna dispositivi</button>
+<button id="playAudio">Riprendi audio</button>
+</div>
+<div id="log" aria-live="polite"></div>
+</section>
+</main>
+<script src="./app.js"></script>
+</body>
+</html>
