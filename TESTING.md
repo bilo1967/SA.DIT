@@ -39,3 +39,16 @@ Riporta il risultato di questi test: apertura dell'app, scelta ruolo, acquisizio
 5. Disconnetti prima un lato, poi ripeti invertendo i ruoli. Verifica che nessun vecchio canale PeerJS impedisca il successivo collegamento.
 
 La proiezione usa ora il bus eventi Wails per negoziare un secondo collegamento WebRTC **locale**. I messaggi tecnici nel log distinguono ricezione remota del video, negoziazione e riproduzione nella finestra separata. La build CI verifica compilazione e test Go, non il comportamento dei dispositivi su Windows.
+
+## Diagnostica video (temporanea)
+
+Nella modalità **Sala**, dopo la connessione, compare una piccola anteprima video sopra la scelta del microfono.
+
+- **Se vedi i sottotitoli nell'anteprima**, la tratta WebRTC dall'Interprete alla Sala è funzionante: il problema è nel collegamento con la finestra di proiezione.
+- **Se l'anteprima rimane nera**, guarda il log `Diagnostica video remoto`: byte e frame decodificati permettono di capire se i dati arrivano.
+- Il log della Sala ora riporta anche `PROBE`, `READY`, offerta SDP, risposta SDP, stato ICE e riproduzione della seconda finestra.
+- Se un PIN non esiste, il messaggio PeerJS `peer-unavailable` ripristina il pulsante **Connettiti**, senza dover chiudere l'eseguibile.
+- Se la connessione viene chiusa, vengono fermate anche le tracce audio/video e liberati i dispositivi.
+- Il titolo della finestra contiene **build N**, dove N è il progressivo `github.run_number`; una build compilata manualmente mostra `dev`.
+
+Per segnalare un difetto di proiezione, copia il log completo della Sala dopo una connessione riuscita e indica se i sottotitoli sono visibili nella piccola anteprima.
