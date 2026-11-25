@@ -85,3 +85,6 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 /* Compact native projection preferences, alongside the room controls. */
 .projection-options{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;line-height:1.3}
 #hideProjectionTitlebar{min-height:0;width:14px;height:14px;margin:0;padding:0;flex:none}
+
+/* The same compact SA.DIT mark is shown on the splash and both role screens. */
+.brand-logo{width:38px;height:38px;object-fit:contain;flex:none;display:block}

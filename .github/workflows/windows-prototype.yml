@@ -10,6 +10,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "frontend/**"
+      - "winres/**"
       - "tests/**"
       - ".github/workflows/windows-prototype.yml"
 
@@ -40,6 +41,12 @@ jobs:
       - name: Run Go tests
         shell: pwsh
         run: go test ./...
+      - name: Generate Windows icon resources
+        shell: pwsh
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          & "$(go env GOPATH)\bin\go-winres.exe" make --arch amd64
+          if (!(Test-Path "rsrc_windows_amd64.syso")) { throw "Windows icon resource not generated" }
       - name: Build Windows desktop executable
         shell: pwsh
         run: |

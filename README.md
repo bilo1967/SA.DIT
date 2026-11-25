@@ -72,6 +72,8 @@ A simplified local Go build, after preparing the Wails bindings, is:
 go build -tags production -o SA.DIT.exe .
 ```
 
+Windows icon resources are generated with `go-winres make --arch amd64` from `winres/winres.json` and `winres/icon.png` before compiling. Run `go install github.com/tc-hib/go-winres@v0.3.3` once when building locally; the GitHub Actions workflow installs it automatically.
+
 The browser PeerJS client (pinned to version **1.5.5**) is currently loaded from jsDelivr when the app starts. The portable EXE therefore still needs network access to that CDN; bundling the client is future work.
 
 For regression checks, see [TESTING.md](TESTING.md). Successful CI builds do not replace live checks of microphone access, window capture and screen projection on the target PCs.
@@ -90,7 +92,7 @@ Temporary TURN credentials are **planned, not implemented**:
 Other planned or exploratory work:
 
 - **macOS port (not started):** Wails supports Intel and Apple Silicon, but microphone/output-device behavior, WebRTC and especially `getDisplayMedia()` under WKWebView require validation. ScreenCaptureKit-based native capture may be needed for the interpreter role.
-- **Application icon (concept only):** petrol-blue background, white speech bubble and two bold dark caption lines, with no text or small decorative details.
+- **Application icon:** the provided projector-and-speech-bubble SVG appears in the shared title bar. A matching Windows EXE icon is embedded by `go-winres` during the Windows build.
 - Bundle PeerJS locally and harden session authentication/acceptance before wider deployment.
 
 The project is still evolving on the prototype branch; check the latest successful Windows build before deploying to a classroom or conference.
