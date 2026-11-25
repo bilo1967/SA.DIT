@@ -23,6 +23,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.x"
+      - name: Bundle PeerJS locally for portable builds
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js" -OutFile "frontend/peerjs.min.js"
+          if ((Get-Item "frontend/peerjs.min.js").Length -lt 100000) { throw "PeerJS bundle missing or truncated" }
       - name: Resolve Go dependencies
         shell: pwsh
         run: go mod tidy

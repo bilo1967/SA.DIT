@@ -205,8 +205,8 @@ async function startInterpreter() {
       log("PIN creato. Comunicalo alla sala.");
     });
   } catch (e) {
-    failure("Non riesco ad avviare la condivisione della finestra.", e);
     disconnect(false);
+    failure("Non riesco ad avviare la condivisione della finestra.", e);
   }
 }
 async function joinRoom() {
@@ -236,8 +236,8 @@ async function joinRoom() {
       });
     });
   } catch (e) {
-    failure("Non riesco a connettere la sala.", e);
     disconnect(false);
+    failure("Non riesco a connettere la sala.", e);
   }
 }
 async function startProjection() {
