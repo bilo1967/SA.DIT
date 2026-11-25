@@ -19,7 +19,9 @@ channel.onmessage = async event => {
     if (msg.type === "stop") { stop(); return; }
     if (msg.type === "probe") { channel.postMessage({type:"ready"}); return; }
     if (msg.type === "offer") {
+      const earlyCandidates = pendingCandidates;
       stop();
+      pendingCandidates = earlyCandidates;
       pc = new RTCPeerConnection({iceServers:[]});
       pc.onicecandidate = e => {
         if(e.candidate) channel.postMessage({type:"candidate-to-room",candidate:e.candidate.toJSON()});
