@@ -17,6 +17,7 @@ let projectionConnected = false;
 let projectionSession = null;
 let videoStatsTimer = null;
 let projectionProbeCount = 0;
+let reserveVideoTimer = null;
 const projectionEmit = (name, payload={}) => Events.Emit("sadit:projection:" + name, payload)
   .catch(error => log("Errore di comunicazione con la proiezione.", error.message, "error"));
 
@@ -200,6 +201,8 @@ function closeNetwork() {
 function disconnect(writeLog = true) {
   // Stop capture even when the other side disappears unexpectedly.
   closeNetwork();
+  if (reserveVideoTimer) clearInterval(reserveVideoTimer);
+  reserveVideoTimer = null;
   stopTracks();
   remoteStream = null;
   const preview = $("remoteVideoPreview");
@@ -295,6 +298,30 @@ async function startInterpreter() {
     failure("Non riesco ad avviare la condivisione della finestra.", e);
   }
 }
+// Reserve a video m-line in the Room's PeerJS offer. Without it, an
+// audio-only offer cannot negotiate the interpreter's video in the answer.
+// This tiny silent synthetic video is never shown or sent to the interpreter UI.
+function reserveIncomingVideoChannel(stream) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext("2d");
+  let frame = 0;
+  const paint = () => {
+    ctx.fillStyle = frame++ % 2 ? "#151d27" : "#16202a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+  paint();
+  const reserve = canvas.captureStream(1);
+  const videoTrack = reserve.getVideoTracks()[0];
+  if (!videoTrack) throw new Error("Impossibile creare il canale video WebRTC della Sala.");
+  stream.addTrack(videoTrack);
+  reserveVideoTimer = setInterval(paint, 1000);
+  log("Sala: canale video riservato nell'offerta WebRTC.",
+    "Audio: " + stream.getAudioTracks().length + " · Video sintetico: " +
+    stream.getVideoTracks().length + " · " + videoTrack.readyState);
+}
+
 async function joinRoom() {
   if (busy) return;
   const pin = $("pinInput").value.trim();
@@ -304,6 +331,7 @@ async function joinRoom() {
   setStatus("Collegamento con l'interprete", "waiting");
   try {
     localStream = await selectedAudio();
+    reserveIncomingVideoChannel(localStream);
     peer = makePeer();
     peer.on("open", () => {
       $("joinRoom").disabled = false;
@@ -314,8 +342,9 @@ async function joinRoom() {
       const connection = peer.connect(id, {reliable:true});
       attachData(connection);
       connection.on("open", () => {
-        log("Sala: invio chiamata audio all'Interprete.",
-          "Tracce audio: " + localStream.getAudioTracks().length);
+        log("Sala: invio offerta audio/video all'Interprete.",
+          "Tracce audio: " + localStream.getAudioTracks().length +
+          " · Tracce video: " + localStream.getVideoTracks().length);
         media = peer.call(id, localStream);
         if (!media) { failure("Non riesco a iniziare lo scambio multimediale."); return; }
         observeMediaConnection(media, "Sala");
@@ -389,12 +418,26 @@ function probeProjection() {
 function observeMediaConnection(call, side) {
   log(side + ": chiamata PeerJS creata.", "peer=" + call.peer + " · open=" + call.open);
   let checks = 0;
+  let inspectedSDP = false;
   const timer = setInterval(async () => {
     if (media !== call || checks++ >= 8) { clearInterval(timer); return; }
     const pc = call.peerConnection;
     if (!pc) {
       log(side + ": RTCPeerConnection non ancora disponibile.", "Controllo " + checks);
       return;
+    }
+    if (!inspectedSDP && pc.localDescription) {
+      inspectedSDP = true;
+      const localSDP = pc.localDescription.sdp || "";
+      const remoteSDP = pc.remoteDescription?.sdp || "";
+      const summary = sdp => (["audio", "video"].map(kind => {
+        const block = sdp.split(/(?=^m=)/m).find(section => section.startsWith("m=" + kind + " "));
+        if (!block) return kind + ": assente";
+        const direction = block.match(/^a=(sendrecv|sendonly|recvonly|inactive)$/m)?.[1] || "non specificata";
+        return kind + ": " + direction;
+      }).join(", "));
+      log(side + ": sezioni SDP negoziate.",
+        "Locale: [" + summary(localSDP) + "] · Remoto: [" + summary(remoteSDP) + "]");
     }
     const incoming = pc.getReceivers().map(r => r.track.kind + ":" + r.track.readyState + ":muted=" + r.track.muted);
     const outgoing = pc.getSenders().map(s => s.track ? s.track.kind + ":" + s.track.readyState : "nessuna traccia");
@@ -594,6 +637,31 @@ $("openProjection").onclick = () => startProjection().catch(e => failure("Non ri
 // The primary connection buttons handle confirmed disconnection.
 $("refreshDevice").onclick = () => refreshDevices(true);
 $("clearLog").onclick = () => $("log").replaceChildren();
+$("copyLog").onclick = async () => {
+  const content = [...$("log").querySelectorAll(".log-entry")].map(entry => {
+    const time = entry.querySelector(".time")?.textContent || "";
+    const message = entry.querySelector(".message")?.textContent || "";
+    const detail = entry.querySelector(".detail")?.textContent || "";
+    return time + " " + message + (detail ? "\\n    " + detail : "");
+  }).join("\\n");
+  if (!content) return;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(content);
+    $("copyLog").textContent = "Copiato";
+  } catch (error) {
+    const field = document.createElement("textarea");
+    field.value = content;
+    field.style.cssText = "position:fixed;left:-9999px;top:0";
+    document.body.append(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    field.remove();
+    if (copied) $("copyLog").textContent = "Copiato";
+    else log("Non riesco a copiare il log.", error.message, "error");
+  }
+  setTimeout(() => { $("copyLog").textContent = "Copia"; }, 1500);
+};
 $("chatForm").onsubmit = sendChat;
 $("copyPIN").onclick = async () => {
   try { await navigator.clipboard.writeText($("pinDisplay").textContent); }
