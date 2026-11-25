@@ -234,13 +234,57 @@ function disconnect(writeLog = true) {
   if (writeLog) log("Sessione terminata.");
   setStatus("Non connesso");
 }
+// Prioritize the readability of text over smooth animation.
+const SHARING_FPS = 15;
+const SHARING_BITRATE = 6000000; // bits/s, cap rather than guaranteed rate
+async function captureTextWindow() {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: { frameRate: { ideal: SHARING_FPS, max: SHARING_FPS } },
+    audio: false
+  });
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    track.contentHint = "text";
+    try {
+      await track.applyConstraints({ frameRate: { ideal: SHARING_FPS, max: SHARING_FPS } });
+    } catch (e) {
+      log("Impossibile applicare il limite di 15 fps.", e.message);
+    }
+    log("Cattura ottimizzata per il testo.",
+      "Risoluzione: " + (track.getSettings().width || "?") + "×" +
+      (track.getSettings().height || "?") + " · fps: " + (track.getSettings().frameRate || "?") +
+      " · contentHint: " + track.contentHint);
+  }
+  return stream;
+}
+async function prioritizeTextEncoding(call, label) {
+  const pc = call?.peerConnection;
+  if (!pc) return;
+  const sender = pc.getSenders().find(s => s.track?.kind === "video");
+  if (!sender) { log(label + ": nessun sender video da ottimizzare."); return; }
+  try {
+    const params = sender.getParameters();
+    const encodings = params.encodings?.length ? params.encodings : [{}];
+    params.encodings = encodings.map(e => ({
+      ...e, maxBitrate: SHARING_BITRATE, maxFramerate: SHARING_FPS, scaleResolutionDownBy: 1
+    }));
+    params.degradationPreference = "maintain-resolution";
+    await sender.setParameters(params);
+    log(label + ": codifica ottimizzata per testo.",
+      "Bitrate massimo: " + SHARING_BITRATE + " bps · " +
+      "frame rate: " + SHARING_FPS + " fps · scaling: 1:1");
+  } catch (e) {
+    log(label + ": parametri di codifica non applicati.", e.message);
+  }
+}
+
 async function startInterpreter() {
   if (busy) return;
   busy = true;
   $("startInterpreter").disabled = true;
   setStatus("Seleziona la finestra da trasmettere", "waiting");
   try {
-    localStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
+    localStream = await captureTextWindow();
     log("Finestra selezionata: cattura video attivata.",
       localStream.getVideoTracks().map(t => t.label + " · " + t.readyState + " · " + JSON.stringify(t.getSettings())).join("; "));
     localStream.getVideoTracks()[0]?.addEventListener("ended", () => { if(!switchingSharing) stopSharing(); });
@@ -257,6 +301,8 @@ async function startInterpreter() {
       if (media) { log("Chiamata duplicata rifiutata."); incomingCall.close(); return; }
       media = incomingCall;
       incomingCall.answer(localStream);
+      // PeerJS installs the sender during answer(); some implementations do so asynchronously.
+      setTimeout(() => prioritizeTextEncoding(incomingCall, "Interprete"), 400);
       log("Risposta alla chiamata inviata con video.",
         "Tracce video: " + localStream.getVideoTracks().length + " · " +
         localStream.getVideoTracks().map(t => t.readyState + ":" + t.label).join(", "));
@@ -487,6 +533,7 @@ function sendProjectionOffer() {
   const pc = new RTCPeerConnection({iceServers:[]});
   projectionPC = pc;
   for (const track of tracks) pc.addTrack(track, remoteStream);
+  prioritizeTextEncoding({peerConnection:pc}, "Proiezione locale");
   pc.oniceconnectionstatechange = () => {
     if (projectionPC === pc) log("Proiezione: ICE locale " + pc.iceConnectionState);
   };
@@ -591,11 +638,12 @@ async function changeSharing() {
   let next = null;
   try {
     switchingSharing = true;
-    next = await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+    next = await captureTextWindow();
     const track = next.getVideoTracks()[0];
     const sender = media.peerConnection.getSenders().find(item=>item.track?.kind==="video");
     if (!sender) throw new Error("Il collegamento non contiene una traccia video sostituibile.");
     await sender.replaceTrack(track);
+    prioritizeTextEncoding(media, "Interprete");
     localStream?.getTracks().forEach(old => old.stop());
     localStream = next;
     track.addEventListener("ended", () => { if (!switchingSharing) stopSharing(); });
