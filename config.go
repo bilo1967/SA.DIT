@@ -79,7 +79,7 @@ func defaultSignaling() SignalingConfig {
 }
 
 func defaultPreferences() Preferences {
-	return Preferences{Role: "project"}
+	return Preferences{Role: "interpreter"}
 }
 
 func readJSON(file string, value any) error {
@@ -153,11 +153,13 @@ func (*ConfigService) LoadPreferences() (Preferences, error) {
 	p := defaultPreferences()
 	err := readJSON("preferences.json", &p)
 	if errors.Is(err, os.ErrNotExist) { return p, nil }
+	if p.Role == "project" { p.Role = "interpreter" }
+	if p.Role == "receive" { p.Role = "room" }
 	return p, err
 }
 
 // SavePreferences persists the local device and role preferences.
 func (*ConfigService) SavePreferences(p Preferences) error {
-	if p.Role != "project" && p.Role != "receive" { return errors.New("ruolo non valido") }
+	if p.Role != "interpreter" && p.Role != "room" { return errors.New("ruolo non valido") }
 	return saveJSON("preferences.json", p)
 }

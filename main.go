@@ -27,13 +27,17 @@ func main() {
 		},
 	})
 
+	projection := &ProjectionService{app: app}
+	app.RegisterService(application.NewService(projection))
+
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name: "main",
 		Title: "SA.DIT - Media validation",
-		Width: 880,
-		Height: 700,
-		MinWidth: 520,
-		MinHeight: 450,
+		Width: 1060,
+		Height: 640,
+		MinWidth: 880,
+		MinHeight: 640,
+		MaxHeight: 640,
 	})
 	window.Center()
 	window.Show()
