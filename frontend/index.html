@@ -5,28 +5,28 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SA.DIT - Media validation</title>
 <style>
-:root { font: 15px/1.45 system-ui,Segoe UI,sans-serif; color:#e8edf4; background:#111822; }
+:root { font: 15px/1.45 system-ui,Segoe UI,sans-serif; color:#243446; background:#f4f7fa; color-scheme:light; }
 * { box-sizing:border-box; }
 body { margin:0; padding:18px; }
 header { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
 h1 { font-size:24px; margin:0; letter-spacing:.03em; }
 h2 { font-size:16px; margin:0 0 10px; }
-p { margin:5px 0 12px; color:#aab9ca; }
-small { color:#96a7b8; }
+p { margin:5px 0 12px; color:#546477; }
+small { color:#647487; }
 main { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
-.panel { background:#1b2634; border:1px solid #344558; border-radius:10px; padding:14px; min-width:0; }
+.panel { background:#ffffff; border:1px solid #d4dfe9; border-radius:10px; padding:14px; min-width:0; }
 .wide { grid-column:1/-1; }
 .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
-button,select { background:#293c51; color:#fff; border:1px solid #53708e; padding:9px 11px; border-radius:6px; font:inherit; }
+button,select { background:#ffffff; color:#27394c; border:1px solid #a9bfd1; padding:9px 11px; border-radius:6px; font:inherit; }
 button { cursor:pointer; }
-button:hover { background:#35516d; }
+button:hover { background:#e7f0f8; }
 button:disabled { opacity:.5; cursor:default; }
-button.primary { background:#176f9c; border-color:#399ccf; }
-textarea { resize:vertical; width:100%; min-height:84px; padding:8px; font:12px/1.4 ui-monospace,Consolas,monospace; border-radius:6px; border:1px solid #50647b; background:#0e151e; color:#d6e7fb; }
-label { display:block; color:#bbcce0; font-size:13px; margin:8px 0 4px; }
-video { width:100%; max-height:285px; background:#070b0f; border-radius:6px; object-fit:contain; }
-#log { white-space:pre-wrap; overflow-wrap:anywhere; background:#0c131c; border-radius:5px; padding:9px; min-height:66px; max-height:110px; overflow:auto; color:#aec8dc; font:12px/1.4 ui-monospace,Consolas,monospace; }
-#state { color:#70d7b4; font-weight:600; }
+button.primary { background:#156fa3; color:white; border-color:#156fa3; }
+textarea { resize:vertical; width:100%; min-height:84px; padding:8px; font:12px/1.4 ui-monospace,Consolas,monospace; border-radius:6px; border:1px solid #b7c8d7; background:#f9fbfd; color:#26374a; }
+label { display:block; color:#43556a; font-size:13px; margin:8px 0 4px; }
+video { width:100%; max-height:285px; background:#15202b; border-radius:6px; object-fit:contain; }
+#log { white-space:pre-wrap; overflow-wrap:anywhere; background:#eef3f8; border-radius:5px; padding:9px; min-height:66px; max-height:110px; overflow:auto; color:#304960; font:12px/1.4 ui-monospace,Consolas,monospace; }
+#state { color:#168060; font-weight:600; }
 .hidden { display:none !important; }
 @media(max-width:700px) { main { grid-template-columns:1fr; } .wide { grid-column:auto; } }
 </style>
@@ -49,7 +49,12 @@ video { width:100%; max-height:285px; background:#070b0f; border-radius:6px; obj
 <div id="receiveControls" class="hidden">
 <p>L'audio di questo PC sarà inviato all'interprete.</p>
 <label for="audioSource">Sorgente audio</label>
-<select id="audioSource"><option value="microphone">Microfono</option><option value="system">Audio condiviso dello schermo (sperimentale)</option></select>
+<select id="audioSource"><option value="microphone">Ingresso microfonico</option><option value="system">Audio condiviso dello schermo (sperimentale)</option></select>
+<div id="micSettings">
+<label for="inputDevice">Dispositivo di ingresso audio</label>
+<div class="row"><select id="inputDevice" style="flex:1;min-width:190px"><option value="">Dispositivo predefinito</option></select><button id="refreshInputs" type="button">Aggiorna microfoni</button></div>
+<p><small>Seleziona l'ingresso collegato all'impianto audio di sala. I nomi dei dispositivi potrebbero comparire solo dopo aver autorizzato l'accesso al microfono.</small></p>
+</div>
 <p><small>Per l'audio di sistema il selettore potrebbe richiedere la condivisione di uno schermo/scheda. La disponibilità dipende da WebView2.</small></p>
 <button class="primary" id="answer">Applica offerta e crea risposta</button>
 </div>

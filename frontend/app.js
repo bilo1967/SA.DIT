@@ -21,6 +21,7 @@ function updateRole() {
   $("projectControls").classList.toggle("hidden", mode !== "project");
   $("projectAnswer").classList.toggle("hidden", mode !== "project");
   $("receiveControls").classList.toggle("hidden", mode !== "receive");
+  updateAudioSource();
   $("noVideo").textContent = mode === "project"
     ? "In questa modalità si riceve l'audio dal PC remoto."
     : "Il video dell'interprete comparirà qui dopo la connessione.";
@@ -48,6 +49,8 @@ function reset() {
   $("role").disabled = false;
   $("offer").disabled = false;
   $("answer").disabled = false;
+  $("inputDevice").disabled = false;
+  $("audioSource").disabled = false;
   log("Sessione terminata.");
 }
 
@@ -132,8 +135,16 @@ async function createOffer() {
 
 async function captureAudio() {
   if ($("audioSource").value === "microphone") {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const deviceId = $("inputDevice").value;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+      video: false
+    });
     captured.push(stream);
+    $("inputDevice").disabled = true;
+    $("audioSource").disabled = true;
+    log("Microfono selezionato: " + (stream.getAudioTracks()[0]?.label || "predefinito"));
+    await refreshDevices();
     return stream.getAudioTracks()[0];
   }
   const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -175,17 +186,29 @@ async function applyAnswer() {
   log("Risposta applicata; attesa connessione ICE.");
 }
 
+function updateAudioSource() {
+  $("micSettings").classList.toggle("hidden", $("audioSource").value !== "microphone");
+}
+
+// Enumerate both incoming microphones and outgoing playback devices.
 async function refreshDevices() {
-  const select = $("outputDevice");
-  const selected = select.value;
-  select.replaceChildren(new Option("Dispositivo predefinito", ""));
   if (!navigator.mediaDevices?.enumerateDevices) return;
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    for (const device of devices.filter((d) => d.kind === "audiooutput")) {
-      if (device.deviceId) select.add(new Option(device.label || "Uscita audio " + (select.length), device.deviceId));
+    for (const [id, kind, fallback] of [
+      ["inputDevice", "audioinput", "Ingresso audio"],
+      ["outputDevice", "audiooutput", "Uscita audio"]
+    ]) {
+      const select = $(id);
+      const selected = select.value;
+      select.replaceChildren(new Option("Dispositivo predefinito", ""));
+      for (const device of devices.filter((d) => d.kind === kind)) {
+        if (device.deviceId && device.deviceId !== "default") {
+          select.add(new Option(device.label || fallback + " " + select.length, device.deviceId));
+        }
+      }
+      if (Array.from(select.options).some((item) => item.value === selected)) select.value = selected;
     }
-    if (Array.from(select.options).some((item) => item.value === selected)) select.value = selected;
   } catch (error) { log("Dispositivi: " + error.message); }
 }
 
@@ -221,6 +244,9 @@ $("offer").addEventListener("click", run(createOffer));
 $("answer").addEventListener("click", run(createAnswer));
 $("applyAnswer").addEventListener("click", run(applyAnswer));
 $("devices").addEventListener("click", run(refreshDevices));
+$("refreshInputs").addEventListener("click", run(refreshDevices));
+$("audioSource").addEventListener("change", updateAudioSource);
+navigator.mediaDevices?.addEventListener?.("devicechange", () => { refreshDevices(); });
 $("outputDevice").addEventListener("change", run(chooseOutput));
 $("playAudio").addEventListener("click", run(async () => { await $("remoteAudio").play(); log("Audio riattivato."); }));
 $("copy").addEventListener("click", async () => {
