@@ -51,3 +51,10 @@ fieldset{border:1px solid #dae5ed;border-radius:8px;margin:12px 0;padding:12px}l
 .video-diagnostic{margin-top:8px;border:1px solid #d3e1ec;border-radius:7px;overflow:hidden;background:#eff5fa}
 .video-diagnostic-header{padding:4px 8px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#3b607d}
 .video-diagnostic video{width:100%;height:120px;background:#161c24;object-fit:contain;display:block}
+
+/* Keep controls and log independently scrollable in the fixed-height desktop view. */
+.left-pane{min-height:0;overflow:hidden}
+.primary-controls{min-height:0;max-height:calc(100% - 145px);overflow-y:auto;overscroll-behavior:contain}
+.log-section{min-height:145px;flex:1 1 145px;overflow:hidden}
+.log-list{min-height:0;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.log-actions{display:flex;align-items:center;gap:8px}
