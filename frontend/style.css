@@ -46,3 +46,8 @@ fieldset{border:1px solid #dae5ed;border-radius:8px;margin:12px 0;padding:12px}l
 .pin-display{flex-wrap:wrap;gap:9px}.pin-display strong{font-size:22px}
 #changeSharing{background:#e6f3fc;border-color:#8fbedb;color:#155d88}
 #stopSharing{color:#a64747}
+
+/* Temporary room-side video diagnostic, inside the existing compact left pane. */
+.video-diagnostic{margin-top:8px;border:1px solid #d3e1ec;border-radius:7px;overflow:hidden;background:#eff5fa}
+.video-diagnostic-header{padding:4px 8px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#3b607d}
+.video-diagnostic video{width:100%;height:120px;background:#161c24;object-fit:contain;display:block}
