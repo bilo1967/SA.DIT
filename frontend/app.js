@@ -15,6 +15,8 @@ let pendingProjectionICE = [];
 let projectionHandshakeTimer = null;
 let projectionConnected = false;
 let projectionSession = null;
+let videoStatsTimer = null;
+let projectionProbeCount = 0;
 const projectionEmit = (name, payload={}) => Events.Emit("sadit:projection:" + name, payload)
   .catch(error => log("Errore di comunicazione con la proiezione.", error.message, "error"));
 
@@ -86,10 +88,21 @@ function peerOptions() {
     config: { iceServers: signaling.iceServers || [] },
   };
 }
+function peerFailure(error, originPeer) {
+  if (peer !== originPeer) return;
+  const type = String(error?.type || "");
+  if (type === "peer-unavailable" || type === "network" || type === "server-error" || type === "socket-error") {
+    const reason = type === "peer-unavailable"
+      ? "PIN non valido oppure Interprete non raggiungibile. Controlla il PIN e riprova."
+      : "Il server PeerJS non è raggiungibile. Controlla la rete e riprova.";
+    disconnect(false);
+    failure(reason, error);
+  } else failure("Errore del collegamento PeerJS.", error);
+}
 function makePeer(id) {
   if (!window.Peer) throw new Error("La libreria PeerJS non è disponibile. Verifica la connessione Internet.");
   const p = id ? new window.Peer(id, peerOptions()) : new window.Peer(peerOptions());
-  p.on("error", e => { if (peer === p) failure("Errore del collegamento PeerJS.", e); });
+  p.on("error", e => peerFailure(e, p));
   p.on("disconnected", () => { if (peer === p) setStatus("Signaling disconnesso", "waiting"); });
   p.on("close", () => { if (peer === p) setStatus("Connessione terminata"); });
   return p;
@@ -126,7 +139,7 @@ function attachData(connection) {
     log("La controparte si è scollegata. Sessione pronta per un nuovo collegamento.");
     disconnect(false);
   });
-  data.on("error", error => failure("La chat non è disponibile.", error));
+  data.on("error", error => { if (data === connection) failure("La chat non è disponibile.", error); });
 }
 async function chooseAudioSink(deviceId) {
   const audio = $("incomingAudio");
@@ -178,9 +191,16 @@ function closeNetwork() {
   peer = null;
 }
 function disconnect(writeLog = true) {
+  // Stop capture even when the other side disappears unexpectedly.
   closeNetwork();
   stopTracks();
   remoteStream = null;
+  const preview = $("remoteVideoPreview");
+  preview.pause();
+  preview.srcObject = null;
+  $("videoDiagnosticStatus").textContent = "Nessun video";
+  clearInterval(videoStatsTimer);
+  videoStatsTimer = null;
   busy = false;
   projectionEmit("stop");
   try { projectionPC?.close(); } catch {}
@@ -190,6 +210,7 @@ function disconnect(writeLog = true) {
   projectionSession = null;
   clearTimeout(projectionHandshakeTimer);
   projectionHandshakeTimer = null;
+  projectionProbeCount = 0;
   connectionActive(false);
   $("startInterpreter").disabled = false;
   $("joinRoom").disabled = false;
@@ -201,6 +222,7 @@ function disconnect(writeLog = true) {
   $("stopSharing").classList.add("hidden");
   $("pinInput").disabled = false;
   $("pinDisplay").textContent = "—";
+  $("videoDiagnostic").classList.add("hidden");
   $("copyPIN").disabled = true;
   $("incomingAudio").srcObject = null;
   if (writeLog) log("Sessione terminata.");
@@ -270,8 +292,30 @@ async function joinRoom() {
         media = peer.call(id, localStream);
         if (!media) { failure("Non riesco a iniziare lo scambio multimediale."); return; }
         media.on("stream", stream => {
+          if (media === null) return;
           remoteStream = stream;
-          log("Video dell'interprete ricevuto.");
+          const videoTracks = stream.getVideoTracks();
+          const audioTracks = stream.getAudioTracks();
+          log("WebRTC: flusso remoto ricevuto.", "Video: " + videoTracks.length + " · Audio: " + audioTracks.length);
+          $("videoDiagnostic").classList.remove("hidden");
+          const preview = $("remoteVideoPreview");
+          preview.srcObject = stream;
+          $("videoDiagnosticStatus").textContent = videoTracks.length ? "Traccia presente" : "Nessuna traccia video";
+          preview.play().then(() => log("Anteprima locale avviata.")).catch(e => failure("Anteprima video non avviata.", e));
+          preview.onloadedmetadata = () => log("Anteprima: metadati video ricevuti.",
+            preview.videoWidth + " × " + preview.videoHeight);
+          preview.onplaying = () => {
+            $("videoDiagnosticStatus").textContent = "Riproduzione attiva";
+            log("Anteprima: riproduzione video attiva.", preview.videoWidth + " × " + preview.videoHeight);
+          };
+          for (const track of videoTracks) {
+            log("Traccia video remota.", "ID: " + track.id + " · Stato: " + track.readyState + " · Muted: " + track.muted);
+            track.onunmute = () => log("Traccia video: arrivano dati.");
+            track.onmute = () => log("Traccia video: dati sospesi.");
+            track.onended = () => log("Traccia video: terminata.");
+          }
+          clearInterval(videoStatsTimer);
+          videoStatsTimer = setInterval(() => reportVideoStats(), 5000);
           startProjection().catch(e => failure("Non riesco ad aprire la proiezione.", e));
         });
         media.on("error", e => failure("Non riesco a ricevere il video dell'interprete.", e));
@@ -305,10 +349,32 @@ async function startProjection() {
 }
 function probeProjection() {
   if (!remoteStream || projectionConnected) return;
+  projectionProbeCount++;
+  if (projectionProbeCount === 1 || projectionProbeCount % 5 === 0)
+    log("Proiezione: attendo risposta dalla seconda finestra.", "Tentativo " + projectionProbeCount);
   projectionEmit("probe");
   clearTimeout(projectionHandshakeTimer);
   projectionHandshakeTimer = setTimeout(probeProjection, 800);
 }
+
+// Periodic diagnostics: bytes and decoded frames from the remote PeerJS call.
+async function reportVideoStats() {
+  if (role !== "room" || !media?.peerConnection) return;
+  try {
+    const stats = await media.peerConnection.getStats();
+    const video = [...stats.values()].filter(s => s.type === "inbound-rtp" && (s.kind === "video" || s.mediaType === "video"));
+    if (!video.length) {
+      log("Diagnostica video: nessuna statistica RTP video.", "Canale multimediale: " + media.peerConnection.connectionState);
+      return;
+    }
+    const s = video[0];
+    log("Diagnostica video remoto.", "Byte: " + (s.bytesReceived ?? "?") +
+      " · Frame decodificati: " + (s.framesDecoded ?? "?") +
+      " · Frame ricevuti: " + (s.framesReceived ?? "?") +
+      " · Risoluzione: " + ($("remoteVideoPreview").videoWidth || 0) + "×" + ($("remoteVideoPreview").videoHeight || 0));
+  } catch(e) { log("Non riesco a leggere le statistiche video.", e.message, "error"); }
+}
+
 function sendChat(event) {
   event.preventDefault();
   const text = $("chatText").value.trim();
@@ -321,6 +387,7 @@ function sendChat(event) {
 // Only signaling goes through the Wails event bus; frames stay on WebRTC.
 function sendProjectionOffer() {
   if (!remoteStream || role !== "room" || projectionConnected) return;
+  log("Proiezione: seconda finestra pronta, preparo collegamento video locale.");
   const tracks = remoteStream.getVideoTracks().filter(track => track.readyState === "live");
   if (!tracks.length) {
     failure("L'interprete è collegato ma non sta inviando un video.");
@@ -332,12 +399,20 @@ function sendProjectionOffer() {
   try { projectionPC?.close(); } catch {}
   pendingProjectionICE = [];
   projectionSession = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+  log("Proiezione: nuovo collegamento WebRTC locale.", projectionSession);
   const session = projectionSession;
   const pc = new RTCPeerConnection({iceServers:[]});
   projectionPC = pc;
   for (const track of tracks) pc.addTrack(track, remoteStream);
+  pc.oniceconnectionstatechange = () => {
+    if (projectionPC === pc) log("Proiezione: ICE locale " + pc.iceConnectionState);
+  };
+  pc.onsignalingstatechange = () => {
+    if (projectionPC === pc) log("Proiezione: signaling " + pc.signalingState);
+  };
   pc.onconnectionstatechange = () => {
     if (projectionPC !== pc) return;
+    log("Proiezione: connessione locale " + pc.connectionState);
     if (pc.connectionState === "connected") log("Video collegato alla finestra di proiezione.");
     if (pc.connectionState === "failed") {
       projectionConnected = false;
@@ -351,7 +426,10 @@ function sendProjectionOffer() {
   };
   pc.createOffer()
     .then(offer => pc.setLocalDescription(offer))
-    .then(() => projectionEmit("offer",{session, sdp:pc.localDescription}))
+    .then(() => {
+      log("Proiezione: offerta locale inviata.", "SDP: " + (pc.localDescription?.sdp?.length || 0) + " caratteri");
+      return projectionEmit("offer",{session, sdp:pc.localDescription});
+    })
     .catch(error => {
       projectionConnected = false;
       failure("Impossibile avviare la proiezione locale.", error);
@@ -359,6 +437,7 @@ function sendProjectionOffer() {
 }
 
 Events.On("sadit:projection:ready", () => {
+  log("Proiezione: ricevuto READY dalla seconda finestra.");
   if (role === "room" && remoteStream && !projectionConnected) sendProjectionOffer();
 });
 Events.On("sadit:projection:answer", async event => {
@@ -368,7 +447,7 @@ Events.On("sadit:projection:answer", async event => {
     await projectionPC.setRemoteDescription(msg.sdp);
     const waiting = pendingProjectionICE.splice(0);
     for (const candidate of waiting) await projectionPC.addIceCandidate(candidate);
-    log("La finestra di proiezione ha accettato il collegamento video.");
+    log("Proiezione: risposta SDP applicata dalla seconda finestra.");
   } catch (error) { failure("Errore durante il collegamento video locale.", error); }
 });
 Events.On("sadit:projection:candidate-to-room", async event => {
@@ -378,6 +457,10 @@ Events.On("sadit:projection:candidate-to-room", async event => {
     if (projectionPC.remoteDescription) await projectionPC.addIceCandidate(msg.candidate);
     else pendingProjectionICE.push(msg.candidate);
   } catch (error) { log("Candidato ICE locale non valido.", error.message, "error"); }
+});
+Events.On("sadit:projection:debug", event => {
+  const msg = event.data || {};
+  log("Finestra di proiezione: " + (msg.message || "evento"), msg.details || "");
 });
 Events.On("sadit:projection:status", event => {
   const msg = event.data || {};
