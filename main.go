@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // buildNumber is injected by GitHub Actions; local builds display "dev".
@@ -44,6 +45,10 @@ func main() {
 		MaxHeight: 640,
 	})
 	window.Center()
+	// Closing the main window ends the app even if the projection is still open.
+	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		app.Quit()
+	})
 	window.Show()
 
 	if err := app.Run(); err != nil {

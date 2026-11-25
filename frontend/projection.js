@@ -1,8 +1,10 @@
 // SA.DIT projection: independent window, Wails events for local WebRTC signaling.
 import { Events } from "/wails/runtime.js";
+import { initProjectionCrop } from "./projection-crop.js";
 
 const video = document.getElementById("projection");
 const placeholder = document.getElementById("placeholder");
+const projectionCrop = initProjectionCrop(video);
 let pc = null;
 let activeSession = null;
 let earlyCandidates = [];
@@ -27,6 +29,7 @@ function stop() {
   video.pause();
   video.srcObject = null;
   video.style.display = "none";
+  projectionCrop.reset();
   message("In attesa dei sottotitoli dell'interprete…");
 }
 

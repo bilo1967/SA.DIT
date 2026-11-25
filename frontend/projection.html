@@ -1,6 +1,38 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SA.DIT - Proiezione</title>
-<style>html,body{margin:0;height:100%;background:#111820;color:#dce7ef;font:13px Segoe UI,system-ui,sans-serif;overflow:hidden}
-#projection{width:100%;height:100%;object-fit:contain;display:none}#placeholder{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;box-sizing:border-box;color:#8e9da9}
-</style></head><body><video id="projection" autoplay playsinline muted></video><div id="placeholder">In attesa dei sottotitoli dell'interprete…</div>
-<script type="module" src="./projection.js"></script></body></html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SA.DIT - Proiezione</title>
+<style>
+html,body{margin:0;height:100%;background:#111820;color:#dce7ef;font:13px "Segoe UI",system-ui,sans-serif;overflow:hidden}
+[hidden]{display:none!important}
+#stage{position:relative;width:100%;height:100%;overflow:hidden}
+#projection{position:absolute;display:none;object-fit:fill;max-width:none}
+#placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;box-sizing:border-box;color:#8e9da9}
+#cropToolbar{position:absolute;top:6px;left:6px;z-index:3;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .12s}
+#stage:hover #cropToolbar,#cropToolbar:focus-within,#stage.cropping #cropToolbar{opacity:1;pointer-events:auto}
+#cropToolbar button{display:inline-flex;align-items:center;gap:5px;border:1px solid #6b7f90;border-radius:5px;padding:5px 8px;background:#172633ed;color:#fff;font:inherit;cursor:pointer}
+#cropToolbar button:hover:not(:disabled){background:#31536c}
+#cropToolbar button:disabled{opacity:.5;cursor:default}
+#cropToolbar button:focus-visible{outline:2px solid #7ed7ff;outline-offset:2px}
+#cropToolbar svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#cropOverlay{position:absolute;inset:0;z-index:2;overflow:hidden;cursor:crosshair;touch-action:none;user-select:none}
+#cropSelection{position:absolute;box-sizing:border-box;border:2px solid #7ed7ff;box-shadow:0 0 0 9999px #0008;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="projection" autoplay playsinline muted></video>
+  <div id="placeholder">In attesa dei sottotitoli dell'interprete…</div>
+  <div id="cropOverlay" hidden><div id="cropSelection" hidden></div></div>
+  <div id="cropToolbar" role="toolbar" aria-label="Ritaglio della proiezione">
+    <button id="cropButton" type="button" disabled title="Seleziona l'area da mostrare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v15h15M3 6h15v15"/></svg>Crop</button>
+    <button id="restoreButton" type="button" hidden title="Ripristina immagine completa e dimensioni precedenti"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>Restore</button>
+    <button id="cropOK" type="button" hidden disabled title="Conferma ritaglio (Invio)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6"/></svg>OK</button>
+    <button id="cropCancel" type="button" hidden title="Annulla selezione (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>Cancel</button>
+  </div>
+</div>
+<script type="module" src="./projection.js"></script>
+</body>
+</html>

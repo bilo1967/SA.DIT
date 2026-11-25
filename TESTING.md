@@ -49,3 +49,11 @@ L'anteprima video di prova nella Sala è stata rimossa. I dati tecnici di risolu
 La cattura dell'Interprete è configurata a **15 fps**, con priorità alla leggibilità del testo; si tenta di evitare la riduzione automatica della risoluzione dei flussi WebRTC, con bitrate massimo impostato a 6 Mbit/s. Il bitrate è un limite superiore, non una garanzia. Per verificare la qualità, osservare i frame e la risoluzione nelle righe diagnostiche copiate.
 
 Il layout principale utilizza due colonne in proporzione **60/40**, a favore dei controlli e del registro.
+
+## Ritaglio della proiezione
+
+Passa il mouse sulla proiezione e premi **Crop**. Trascina un rettangolo sul video; puoi ridisegnarlo finché non premi **OK** (o Invio). La conferma mostra soltanto quell'area e riduce la finestra. **Cancel** (o Esc) annulla il tentativo. **Restore** ripristina immagine intera e dimensioni precedenti. Il ritaglio è locale: non modifica la cattura inviata dall'Interprete.
+
+Verifica la selezione anche con bande nere, trascinando in entrambe le direzioni e ridimensionando la finestra dopo la conferma. Una nuova sessione riparte dall'immagine completa.
+
+Chiudendo la finestra principale, anche la proiezione deve chiudersi. Riducendo a icona la principale, la proiezione deve rimanere utilizzabile. Chiudere la sola proiezione deve lasciare aperta l'applicazione.
