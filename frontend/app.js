@@ -89,9 +89,9 @@ function peerOptions() {
 function makePeer(id) {
   if (!window.Peer) throw new Error("La libreria PeerJS non è disponibile. Verifica la connessione Internet.");
   const p = id ? new window.Peer(id, peerOptions()) : new window.Peer(peerOptions());
-  p.on("error", e => failure("Errore del collegamento PeerJS.", e));
-  p.on("disconnected", () => setStatus("Signaling disconnesso", "waiting"));
-  p.on("close", () => setStatus("Connessione terminata"));
+  p.on("error", e => { if (peer === p) failure("Errore del collegamento PeerJS.", e); });
+  p.on("disconnected", () => { if (peer === p) setStatus("Signaling disconnesso", "waiting"); });
+  p.on("close", () => { if (peer === p) setStatus("Connessione terminata"); });
   return p;
 }
 function addMessage(text, mine = false) {
@@ -111,6 +111,7 @@ function attachData(connection) {
   if (data && data !== connection) { connection.close(); return; }
   data = connection;
   data.on("open", () => {
+    if (data !== connection) return;
     connectionActive(true);
     setStatus("Collegato alla controparte", "connected");
     log("Canale chat e segnalazione attivo.");
@@ -450,12 +451,38 @@ $("copyPIN").onclick = async () => {
   catch { log("Non riesco a copiare il PIN: selezionalo manualmente."); }
 };
 $("pinInput").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g,"").slice(0,6));
-$("deviceSelect").onchange = async () => {
-  const id = $("deviceSelect").value;
+// Allow changing the room microphone without disconnecting the interpreter.
+async function chooseRoomInput(deviceId) {
+  if (role !== "room" || !media?.peerConnection || !localStream) return;
+  const sender = media.peerConnection.getSenders().find(s => s.track?.kind === "audio");
+  if (!sender) throw new Error("Non è disponibile un canale audio attivo.");
+  const replacement = await navigator.mediaDevices.getUserMedia({
+    audio: deviceId ? { deviceId: { exact: deviceId } } : true, video: false
+  });
   try {
+    await sender.replaceTrack(replacement.getAudioTracks()[0]);
+  } catch(error) {
+    replacement.getTracks().forEach(t=>t.stop());
+    throw error;
+  }
+  const old = localStream;
+  localStream = replacement;
+  old.getTracks().forEach(t=>t.stop());
+  log("Ingresso audio della Sala modificato.", replacement.getAudioTracks()[0]?.label || "Predefinito");
+}
+$("deviceSelect").onchange = async () => {
+  const select = $("deviceSelect");
+  const id = select.value;
+  const previous = role === "room" ? (preferences.inputDeviceId || "") : (preferences.outputDeviceId || "");
+  select.disabled = true;
+  try {
+    if (role === "room") await chooseRoomInput(id);
+    else if (role === "interpreter") await chooseAudioSink(id);
     await savePrefs(role === "room" ? {inputDeviceId:id} : {outputDeviceId:id});
-    if (role === "interpreter") await chooseAudioSink(id);
-  } catch(e) { failure("Non riesco a salvare il dispositivo audio.",e); }
+  } catch(e) {
+    select.value = previous;
+    failure("Non riesco a cambiare il dispositivo audio.", e);
+  } finally { select.disabled = false; }
 };
 navigator.mediaDevices?.addEventListener?.("devicechange", refreshDevices);
 // Audio element is not visible, but must exist for WebRTC playback.
