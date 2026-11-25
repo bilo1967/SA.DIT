@@ -2,7 +2,7 @@
 
 **Sottotitolazione Attiva - DIT**
 
-A lightweight desktop application for live interpreting and active subtitling. The name is also a play on the Romagnol expression *sa dit'?* ("what are you saying?").
+A lightweight desktop application for live interpreting and active subtitling.
 
 ## Concept
 
