@@ -341,11 +341,56 @@ $("changeRole").onclick = () => {
   $("roleTitle").textContent = "Sottotitolazione attiva";
   $("statusText").textContent = "Seleziona un ruolo per iniziare.";
 };
-$("startInterpreter").onclick = startInterpreter;
-$("joinRoom").onclick = joinRoom;
+
+// Stop only the video: keep the session, chat and incoming audio alive.
+function stopSharing() {
+  if (role !== "interpreter") return;
+  const track = localStream?.getVideoTracks()[0];
+  if (!track || track.readyState === "ended") return;
+  switchingSharing = true;
+  track.stop();
+  switchingSharing = false;
+  log("Condivisione interrotta. Puoi selezionare un'altra finestra.");
+  setStatus("Condivisione sospesa", "waiting");
+}
+
+// Switch the shared window in the existing PeerJS call without renegotiation.
+async function changeSharing() {
+  if (role !== "interpreter" || !media?.peerConnection) {
+    log("Per cambiare finestra, attendi prima la connessione della Sala.");
+    return;
+  }
+  let next = null;
+  try {
+    switchingSharing = true;
+    next = await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+    const track = next.getVideoTracks()[0];
+    const sender = media.peerConnection.getSenders().find(item=>item.track?.kind==="video");
+    if (!sender) throw new Error("Il collegamento non contiene una traccia video sostituibile.");
+    await sender.replaceTrack(track);
+    localStream?.getTracks().forEach(old => old.stop());
+    localStream = next;
+    track.addEventListener("ended", () => { if (!switchingSharing) stopSharing(); });
+    setStatus("Nuova condivisione attiva", "connected");
+    log("Finestra condivisa modificata.");
+  } catch(e) {
+    next?.getTracks().forEach(track=>track.stop());
+    failure("Non riesco a cambiare la finestra condivisa.",e);
+  } finally {
+    switchingSharing = false;
+  }
+}
+
+function confirmDisconnect() {
+  if (window.confirm("Disconnettere SA.DIT e interrompere i flussi audio e video?")) disconnect();
+}
+$("startInterpreter").onclick = () => busy && peer ? confirmDisconnect() : startInterpreter();
+$("joinRoom").onclick = () => busy && peer ? confirmDisconnect() : joinRoom();
+$("changeSharing").onclick = changeSharing;
+$("stopSharing").onclick = stopSharing;
 $("openProjection").onclick = () => startProjection().catch(e => failure("Non riesco ad aprire la finestra di proiezione.",e));
-$("disconnect").onclick = () => disconnect();
-$("refreshDevice").onclick = refreshDevices;
+// The primary connection buttons handle confirmed disconnection.
+$("refreshDevice").onclick = () => refreshDevices(true);
 $("clearLog").onclick = () => $("log").replaceChildren();
 $("chatForm").onsubmit = sendChat;
 $("copyPIN").onclick = async () => {
