@@ -290,8 +290,17 @@ async function joinRoom() {
   }
 }
 async function startProjection() {
+  // A projection window can be closed and opened again during a session.
+  // A new local handshake must be permitted even if an older one succeeded.
+  if (remoteStream) {
+    clearTimeout(projectionHandshakeTimer);
+    try { projectionPC?.close(); } catch {}
+    projectionPC = null;
+    projectionSession = null;
+    projectionConnected = false;
+    pendingProjectionICE = [];
+  }
   await Call.ByName("main.ProjectionService.Open");
-  // The window may have announced ready before the remote stream arrived.
   if (remoteStream) probeProjection();
 }
 function probeProjection() {
