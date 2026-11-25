@@ -642,8 +642,8 @@ $("copyLog").onclick = async () => {
     const time = entry.querySelector(".time")?.textContent || "";
     const message = entry.querySelector(".message")?.textContent || "";
     const detail = entry.querySelector(".detail")?.textContent || "";
-    return time + " " + message + (detail ? "\\n    " + detail : "");
-  }).join("\\n");
+    return time + " " + message + (detail ? "\n    " + detail : "");
+  }).join("\n");
   if (!content) return;
   try {
     if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
