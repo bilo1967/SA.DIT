@@ -1,6 +1,9 @@
 package main
 
-import "github.com/wailsapp/wails/v3/pkg/application"
+import (
+    "fmt"
+    "github.com/wailsapp/wails/v3/pkg/application"
+)
 
 // ProjectionService manages a separate room-side display window.
 type ProjectionService struct { app *application.App }
@@ -14,7 +17,7 @@ func (s *ProjectionService) Open() {
     }
     screen := s.app.Window.NewWithOptions(application.WebviewWindowOptions{
         Name: "projection",
-        Title: "SA.DIT - Proiezione",
+        Title: fmt.Sprintf("SA.DIT - Proiezione (build %s)", buildNumber),
         URL: "http://wails.localhost/projection.html",
         Width: 960,
         Height: 240,

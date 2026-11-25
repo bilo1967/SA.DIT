@@ -2,11 +2,15 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+// buildNumber is injected by GitHub Actions; local builds display "dev".
+var buildNumber = "dev"
 
 //go:embed frontend/*
 var frontend embed.FS
@@ -32,7 +36,7 @@ func main() {
 
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name: "main",
-		Title: "SA.DIT - Media validation",
+		Title: fmt.Sprintf("SA.DIT - build %s", buildNumber),
 		Width: 1060,
 		Height: 640,
 		MinWidth: 880,

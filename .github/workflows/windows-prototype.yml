@@ -38,7 +38,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          go build -tags production -trimpath -ldflags="-s -w -H=windowsgui" -o dist/SA.DIT.exe .
+          go build -tags production -trimpath -ldflags="-s -w -H=windowsgui -X main.buildNumber=${{ github.run_number }}" -o dist/SA.DIT.exe .
       - name: Upload portable executable
         uses: actions/upload-artifact@v4
         with:
