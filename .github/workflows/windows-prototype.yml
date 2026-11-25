@@ -1,0 +1,40 @@
+name: Windows prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - prototype/media-validation
+    paths:
+      - "main.go"
+      - "go.mod"
+      - "go.sum"
+      - "frontend/**"
+      - ".github/workflows/windows-prototype.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+      - name: Resolve Go dependencies
+        shell: pwsh
+        run: go mod tidy
+      - name: Build Windows desktop executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          go build -tags production -trimpath -ldflags="-s -w -H=windowsgui" -o dist/SA.DIT.exe .
+      - name: Upload portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: SA.DIT-Windows-amd64-prototype
+          path: dist/SA.DIT.exe
+          if-no-files-found: error
+          retention-days: 14
