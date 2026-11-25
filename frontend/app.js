@@ -183,12 +183,17 @@ function stopTracks() {
   localStream = null;
 }
 function closeNetwork() {
-  try { media?.close(); } catch {}
-  try { data?.close(); } catch {}
-  try { peer?.destroy(); } catch {}
+  // Detach references before closing the connections: close() can invoke event
+  // handlers synchronously, and old callbacks must not reset a new session.
+  const oldMedia = media;
+  const oldData = data;
+  const oldPeer = peer;
   media = null;
   data = null;
   peer = null;
+  try { oldMedia?.close(); } catch {}
+  try { oldData?.close(); } catch {}
+  try { oldPeer?.destroy(); } catch {}
 }
 function disconnect(writeLog = true) {
   // Stop capture even when the other side disappears unexpectedly.
