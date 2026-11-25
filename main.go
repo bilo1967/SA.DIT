@@ -19,6 +19,9 @@ func main() {
 
 	app := application.New(application.Options{
 		Name: "SA.DIT",
+		Services: []application.Service{
+			application.NewService(&ConfigService{}),
+		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(content),
 		},

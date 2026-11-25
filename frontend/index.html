@@ -38,6 +38,7 @@ video { width:100%; max-height:285px; background:#15202b; border-radius:6px; obj
 <label for="role">Modalità</label>
 <select id="role"><option value="project">Proietta (interprete)</option><option value="receive">Riceve (PC remoto)</option></select>
 <button id="reset">Termina / ricomincia</button>
+<button id="openSettings" type="button">Impostazioni</button>
 </div>
 <main>
 <section class="panel">
@@ -85,6 +86,35 @@ video { width:100%; max-height:285px; background:#15202b; border-radius:6px; obj
 <div id="log" aria-live="polite"></div>
 </section>
 </main>
+<dialog id="settingsDialog" aria-label="Impostazioni SA.DIT">
+<form id="settingsForm" method="dialog">
+<h2>Impostazioni</h2>
+<p>Le impostazioni di rete sono comuni alle due modalità. I dispositivi audio sono specifici del PC.</p>
+<fieldset><legend>Server PeerJS</legend>
+<div class="row"><label>Host <input id="peerHost" required placeholder="0.peerjs.com"></label><label>Porta <input id="peerPort" type="number" min="1" max="65535" required></label><label>Path <input id="peerPath" required value="/"></label><label><input id="peerSecure" type="checkbox" checked> TLS</label></div>
+</fieldset>
+<fieldset><legend>Server STUN / TURN</legend><div id="iceRows"></div><button id="addICE" type="button">Aggiungi server ICE</button>
+<p><small>TURN è facoltativo. Le credenziali vengono salvate soltanto nel file locale.</small></p></fieldset>
+<fieldset><legend>Dispositivi audio</legend>
+<label>Microfono del PC di sala <select id="settingsInput"><option value="">Predefinito</option></select></label>
+<label>Ascolto interprete <select id="settingsOutput"><option value="">Predefinito</option></select></label>
+<button id="settingsRefreshDevices" type="button">Aggiorna dispositivi</button></fieldset>
+<div class="row"><button id="cancelSettings" type="button">Annulla</button><button type="submit" class="primary">Salva</button></div>
+<small id="settingsError" role="status"></small>
+</form></dialog>
+<style>
+dialog { border:1px solid #cbd7e2; border-radius:12px; padding:22px; width:min(800px,94vw); max-height:88vh; background:#fff; color:#243446; box-shadow:0 12px 50px #24344655; }
+dialog::backdrop { background:#1c304677; }
+fieldset { border:1px solid #d8e2eb; border-radius:8px; margin:12px 0; }
+legend { font-weight:600; }
+dialog input,dialog select { padding:8px; border:1px solid #afc2d4; border-radius:5px; background:white; color:#243446; font:inherit; }
+dialog input[type=checkbox] { width:auto; }
+#iceRows .row { padding:6px 0; border-bottom:1px solid #edf1f5; }
+#iceRows input { width:150px; }
+#iceRows .ice-url { flex:1; min-width:190px; }
+#settingsError { color:#ab3434; }
+</style>
 <script src="./app.js"></script>
+<script type="module" src="./settings.js"></script>
 </body>
 </html>

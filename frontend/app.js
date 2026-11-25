@@ -58,9 +58,11 @@ function createPeer() {
   // No STUN or TURN is required for a same-PC test.
   // A public STUN helps on some LANs, but this first prototype
   // does not claim cross-NAT connectivity without TURN.
-  const pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-  });
+  const iceServers = (window.saditSignaling?.iceServers || [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" }
+  ]).map((entry) => ({ ...entry }));
+  const pc = new RTCPeerConnection({ iceServers });
   pc.onconnectionstatechange = () => {
     $("connection").textContent = pc.connectionState;
     log("Connessione: " + pc.connectionState);

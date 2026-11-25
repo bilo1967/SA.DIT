@@ -26,6 +26,11 @@ jobs:
       - name: Resolve Go dependencies
         shell: pwsh
         run: go mod tidy
+      - name: Install Wails CLI and generate named bindings
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+          & "$(go env GOPATH)\\bin\\wails3.exe" generate bindings -names
       - name: Build Windows desktop executable
         shell: pwsh
         run: |
