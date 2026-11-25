@@ -254,8 +254,16 @@ async function startInterpreter() {
         $("incomingAudio").play().catch(e => log("Premi sulla finestra per autorizzare l'ascolto.", e.message));
         log("Audio della sala ricevuto.");
       });
-      incomingCall.on("error", e => failure("Ricezione audio interrotta.", e));
-      incomingCall.on("close", () => log("Flusso audio/video terminato."));
+      incomingCall.on("error", e => {
+        if (media !== incomingCall) return;
+        disconnect(false);
+        failure("Il collegamento audio con la Sala si è interrotto.", e);
+      });
+      incomingCall.on("close", () => {
+        if (media !== incomingCall) return;
+        disconnect(false);
+        log("La Sala si è scollegata: acquisizione video e audio interrotti.");
+      });
     });
     peer.on("open", () => {
       $("startInterpreter").disabled = false;
@@ -319,12 +327,11 @@ async function joinRoom() {
           startProjection().catch(e => failure("Non riesco ad aprire la proiezione.", e));
         });
         media.on("error", e => failure("Non riesco a ricevere il video dell'interprete.", e));
-        media.on("close", () => {
-          projectionEmit("stop");
-          remoteStream = null;
-          // If the data channel is still open, preserve chat; the session
-          // can be deliberately disconnected and established again.
-          if (data?.open) log("Flusso video terminato. Puoi disconnettere e riconnettere la sessione.");
+        const currentMedia = media;
+        currentMedia.on("close", () => {
+          if (media !== currentMedia) return;
+          disconnect(false);
+          log("L'Interprete ha interrotto la connessione. Audio e proiezione chiusi.");
         });
       });
     });
