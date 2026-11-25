@@ -40,15 +40,12 @@ Riporta il risultato di questi test: apertura dell'app, scelta ruolo, acquisizio
 
 La proiezione usa ora il bus eventi Wails per negoziare un secondo collegamento WebRTC **locale**. I messaggi tecnici nel log distinguono ricezione remota del video, negoziazione e riproduzione nella finestra separata. La build CI verifica compilazione e test Go, non il comportamento dei dispositivi su Windows.
 
-## Diagnostica video (temporanea)
+## Log e qualità video
 
-Nella modalità **Sala**, dopo la connessione, compare una piccola anteprima video sopra la scelta del microfono.
+Il registro mostra soltanto gli eventi utili all'utente. Le righe di diagnostica WebRTC sono nascoste nell'interfaccia ma incluse integralmente premendo **Copia**. **Pulisci** elimina entrambe le categorie.
 
-- **Se vedi i sottotitoli nell'anteprima**, la tratta WebRTC dall'Interprete alla Sala è funzionante: il problema è nel collegamento con la finestra di proiezione.
-- **Se l'anteprima rimane nera**, guarda il log `Diagnostica video remoto`: byte e frame decodificati permettono di capire se i dati arrivano.
-- Il log della Sala ora riporta anche `PROBE`, `READY`, offerta SDP, risposta SDP, stato ICE e riproduzione della seconda finestra.
-- Se un PIN non esiste, il messaggio PeerJS `peer-unavailable` ripristina il pulsante **Connettiti**, senza dover chiudere l'eseguibile.
-- Se la connessione viene chiusa, vengono fermate anche le tracce audio/video e liberati i dispositivi.
-- Il titolo della finestra contiene **build N**, dove N è il progressivo `github.run_number`; una build compilata manualmente mostra `dev`.
+L'anteprima video di prova nella Sala è stata rimossa. I dati tecnici di risoluzione e frame ricevuti restano nel log completo.
 
-Per segnalare un difetto di proiezione, copia il log completo della Sala dopo una connessione riuscita e indica se i sottotitoli sono visibili nella piccola anteprima.
+La cattura dell'Interprete è configurata a **15 fps**, con priorità alla leggibilità del testo; si tenta di evitare la riduzione automatica della risoluzione dei flussi WebRTC, con bitrate massimo impostato a 6 Mbit/s. Il bitrate è un limite superiore, non una garanzia. Per verificare la qualità, osservare i frame e la risoluzione nelle righe diagnostiche copiate.
+
+Il layout principale utilizza due colonne in proporzione **60/40**, a favore dei controlli e del registro.
