@@ -1,40 +1,31 @@
-# SA.DIT — Windows media prototype
+# Test della versione con PIN — SA.DIT
 
-This is a **technical prototype**, not a release. There is **one executable** for both roles.
+## Build
 
-## Download / build
+Apri **Actions → Windows prototype** e scarica `SA.DIT-Windows-amd64-prototype` dall'ultima esecuzione **riuscita**. Estrai e avvia `SA.DIT.exe` su Windows 11.
 
-On GitHub, open **Actions → Windows prototype → latest successful run → Artifacts** and download `SA.DIT-Windows-amd64-prototype`. Extract the ZIP and run `SA.DIT.exe` on Windows 11. WebView2 is required (normally installed on Windows 11).
+## Due istanze sullo stesso PC
 
-If Actions has no successful build, run `go mod tidy` and `go build -tags production -o SA.DIT.exe .` on Windows with Go 1.26 or newer, or inspect the failing workflow log.
+1. Avvia due copie dell'eseguibile. Scegli **Interprete** nella prima e **Sala** nella seconda.
+2. In **Interprete** premi **Condividi finestra e ottieni PIN** e seleziona una finestra diversa da SA.DIT.
+3. In **Sala** scegli il microfono e inserisci il PIN. Premi **Connettiti**.
+4. Verifica che la chat funzioni in entrambe le direzioni.
+5. Verifica che la finestra di proiezione si apra **separatamente**, mostri il contenuto condiviso e sia ridimensionabile.
+6. Verifica che l'interprete riceva l'audio. Sullo stesso PC sono consigliate cuffie per evitare feedback.
+7. Verifica che la dialog Setup conservi le impostazioni e che la barra di stato e il log mostrino problemi leggibili.
 
-## Test on one PC (no PeerJS needed)
+## Due PC
 
-Run `SA.DIT.exe` **twice**. Arrange the two application windows side by side:
+Ripeti su due macchine, ciascuna con una sola istanza. La configurazione PeerJS/STUN deve essere compatibile su entrambi. Per reti con NAT/firewall restrittivi configura un server TURN.
 
-1. Instance A: choose **Proietta (interprete)**; click **Condividi finestra e crea offerta**; select an application window. Wait for the outgoing JSON to appear.
-2. Copy the entire outgoing JSON from A into the **Segnalazione ricevuta** field in B.
-3. Instance B: choose **Riceve (PC remoto)**, choose **Microfono**, then click **Applica offerta e crea risposta**. Allow microphone access. Wait for the answer JSON to appear.
-4. Copy B's complete outgoing JSON into A's received signaling field.
-5. On A click **Applica risposta**. ICE should establish the connection: A receives sound from B's mic, and B receives video from A's shared window.
-6. On A click **Aggiorna dispositivi** and select a listening device; use **Riprendi audio** if autoplay was blocked.
+## Limiti della versione sperimentale
 
-**Important for a one-PC test:** use headphones or mute local speakers to avoid audio feedback. Do not capture the SA.DIT window itself (otherwise you will get a recursive video mirror). Two instances can each request capture; permissions and audio routing depend on WebView2.
+- Il PIN di sei cifre identifica direttamente un peer e non è una credenziale sicura.
+- La connessione si appoggia a PeerJS. L'uso del server pubblico può essere limitato dalla sua disponibilità.
+- Per cambiare microfono durante la sessione occorre disconnettersi.
+- Non sono ancora previsti registrazione, sottotitoli testuali, chat persistente o ripristino automatico.
+- Anche una build riuscita non dimostra che i due flussi WebRTC funzionino su tutti i PC: servono test reali.
 
-## Test on two PCs
+## Segnalazione problemi
 
-Perform the same steps on each machine and exchange the two JSON blocks via a trusted channel. This prototype uses a default public STUN server only. Connections across NATs/firewalls **are not guaranteed without TURN**. No PIN/signaling server is integrated yet; that is a planned next phase.
-
-## Known limitations / intended checks
-
-- Windows 11 / Wails 3 / WebView2 desktop screen-picker compatibility is **unverified** until a human runs the binary.
-- System audio capture is experimental. Start with the microphone. In **Riceve**, you can select **Audio condiviso dello schermo** to check whether WebView2 offers a usable audio track.
-- Interpreter-to-remote video and remote-to-interpreter audio must work **at the same time**.
-- No automatic reconnection, PIN, chat, video source from room PC, compact always-on-top window, or automated integration tests yet.
-- Output-device selection requires WebView2 support for `HTMLMediaElement.setSinkId()`; the default output is always available.
-- SDP text can contain IP candidates. Only share it with the intended peer.
-- This prototype uses GitHub Actions to **compile** a Windows executable, not to test a GUI, actual capture, or hardware devices. Those require hands-on Windows testing.
-
-## Report useful test results
-
-For each test, note: Windows version, whether the app launches, whether window selection works, whether B receives video, whether A receives audio, whether the audio output selector works, any error shown in the bottom log, and the GitHub Actions run URL.
+Riporta il risultato di questi test: apertura dell'app, scelta ruolo, acquisizione finestra, PIN, chat, audio, finestra di proiezione, eventuali messaggi di errore nel log e versione del sistema operativo.
