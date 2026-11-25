@@ -1,269 +1,327 @@
-"use strict";
+// SA.DIT - one desktop app, two roles, compact interface, PeerJS and local projection.
+import { Call } from "/wails/runtime.js";
+import { initSettings } from "./settings.js";
 
-// WebRTC proof of concept: signaling is exchanged manually, without PeerJS.
-const $ = (id) => document.getElementById(id);
-const log = (message) => {
-  const line = new Date().toLocaleTimeString() + "  " + message;
-  $("log").textContent += line + "\n";
+const $ = id => document.getElementById(id);
+let role = null;
+let signaling = null, preferences = {};
+let savePrefs = async () => {};
+let peer = null, data = null, media = null;
+let localStream = null, remoteStream = null;
+let busy = false;
+let projectionPC = null;
+const projectionChannel = new BroadcastChannel("sadit-projection");
+
+function log(message, technical = "", level = "info") {
+  const item = document.createElement("div");
+  item.className = "log-entry " + level;
+  const time = document.createElement("span");
+  time.className = "time";
+  time.textContent = new Date().toLocaleTimeString();
+  const caption = document.createElement("span");
+  caption.className = "message";
+  caption.textContent = message;
+  item.append(time, caption);
+  if (technical) {
+    const details = document.createElement("div");
+    details.className = "detail";
+    details.textContent = technical;
+    item.append(details);
+  }
+  $("log").append(item);
   $("log").scrollTop = $("log").scrollHeight;
-};
-let peer = null;
-let captured = [];
-let mode = "project";
-let generation = 0;
-
-function setStatus(message) {
-  $("state").textContent = message;
 }
-
-function updateRole() {
-  mode = $("role").value;
-  $("projectControls").classList.toggle("hidden", mode !== "project");
-  $("projectAnswer").classList.toggle("hidden", mode !== "project");
-  $("receiveControls").classList.toggle("hidden", mode !== "receive");
-  updateAudioSource();
-  $("noVideo").textContent = mode === "project"
-    ? "In questa modalità si riceve l'audio dal PC remoto."
-    : "Il video dell'interprete comparirà qui dopo la connessione.";
+function failure(description, error) {
+  log(description, error?.message || String(error || ""), "error");
+  setStatus(description, "error");
 }
-
-function reset() {
-  generation++;
-  if (peer) {
-    peer.ontrack = null;
-    peer.close();
-    peer = null;
-  }
-  for (const stream of captured) {
-    stream.getTracks().forEach((track) => track.stop());
-  }
-  captured = [];
-  $("remoteVideo").srcObject = null;
-  $("remoteAudio").srcObject = null;
-  $("remoteVideo").classList.add("hidden");
-  $("noVideo").classList.remove("hidden");
-  $("incoming").value = "";
-  $("outgoing").value = "";
-  $("connection").textContent = "Non connesso";
-  setStatus("Pronto");
-  $("role").disabled = false;
-  $("offer").disabled = false;
-  $("answer").disabled = false;
-  $("inputDevice").disabled = false;
-  $("audioSource").disabled = false;
-  log("Sessione terminata.");
+function setStatus(label, kind = "") {
+  $("connLabel").textContent = label;
+  $("statusText").textContent = label;
+  $("connDot").className = "dot " + kind;
 }
-
-function createPeer() {
-  // No STUN or TURN is required for a same-PC test.
-  // A public STUN helps on some LANs, but this first prototype
-  // does not claim cross-NAT connectivity without TURN.
-  const iceServers = (window.saditSignaling?.iceServers || [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" }
-  ]).map((entry) => ({ ...entry }));
-  const pc = new RTCPeerConnection({ iceServers });
-  pc.onconnectionstatechange = () => {
-    $("connection").textContent = pc.connectionState;
-    log("Connessione: " + pc.connectionState);
-    if (pc.connectionState === "connected") setStatus("Connesso");
-    if (pc.connectionState === "failed") setStatus("Connessione fallita");
+function connectionActive(yes) {
+  $("disconnect").disabled = !yes;
+  $("chatText").disabled = !yes;
+  $("sendChat").disabled = !yes;
+  $("chatPresence").textContent = yes ? "Connessa" : "Non connessa";
+  $("deviceSelect").disabled = yes && role === "room";
+}
+function newRole(next) {
+  disconnect(false);
+  role = next;
+  $("roleScreen").classList.add("hidden");
+  $("workspace").classList.remove("hidden");
+  $("changeRole").classList.remove("hidden");
+  $("roleTitle").textContent = role === "interpreter" ? "Interprete · Respeaker" : "Sala · Proiezione";
+  $("controlTitle").textContent = role === "interpreter" ? "Trasmissione sottotitoli" : "Ricezione sottotitoli";
+  $("interpreterControls").classList.toggle("hidden", role !== "interpreter");
+  $("roomControls").classList.toggle("hidden", role !== "room");
+  $("deviceLabel").textContent = role === "interpreter" ? "Dispositivo di ascolto" : "Ingresso audio della sala";
+  $("deviceSelect").replaceChildren(new Option("Predefinito", ""));
+  refreshDevices();
+  setStatus("Non connesso");
+  log(role === "interpreter" ? "Modalità Interprete pronta." : "Modalità Sala pronta.");
+  savePrefs({role: next}).catch(e => log("Non riesco a memorizzare il ruolo.", e.message, "error"));
+}
+function peerOptions() {
+  return {
+    host: signaling.host,
+    port: signaling.port,
+    path: signaling.path,
+    secure: signaling.secure,
+    debug: 1,
+    config: { iceServers: signaling.iceServers || [] },
   };
-  pc.oniceconnectionstatechange = () => log("ICE: " + pc.iceConnectionState);
-  pc.ontrack = (event) => {
-    const track = event.track;
-    const element = track.kind === "audio" ? $("remoteAudio") : $("remoteVideo");
-    const stream = element.srcObject instanceof MediaStream ? element.srcObject : new MediaStream();
-    stream.addTrack(track);
-    element.srcObject = stream;
-    if (track.kind === "video") {
-      element.classList.remove("hidden");
-      $("noVideo").classList.add("hidden");
-    } else {
-      refreshDevices();
-    }
-    element.play().catch((error) => log("Riproduzione " + track.kind + ": " + error.message));
-    log("Traccia ricevuta: " + track.kind);
-  };
-  peer = pc;
-  $("role").disabled = true;
-  return pc;
 }
-
-function waitForICE(pc) {
-  if (pc.iceGatheringState === "complete") return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => finish(new Error("Timeout raccolta ICE (20 s)")), 20000);
-    function change() {
-      if (pc.iceGatheringState === "complete") finish();
-    }
-    function finish(error) {
-      clearTimeout(timeout);
-      pc.removeEventListener("icegatheringstatechange", change);
-      error ? reject(error) : resolve();
-    }
-    pc.addEventListener("icegatheringstatechange", change);
-    change();
+function makePeer(id) {
+  if (!window.Peer) throw new Error("La libreria PeerJS non è disponibile. Verifica la connessione Internet.");
+  const p = id ? new window.Peer(id, peerOptions()) : new window.Peer(peerOptions());
+  p.on("error", e => failure("Errore del collegamento PeerJS.", e));
+  p.on("disconnected", () => setStatus("Signaling disconnesso", "waiting"));
+  p.on("close", () => setStatus("Connessione terminata"));
+  return p;
+}
+function addMessage(text, mine = false) {
+  const empty = $("messages").querySelector(".empty-chat");
+  if (empty) empty.remove();
+  const bubble = document.createElement("div");
+  bubble.className = "bubble" + (mine ? " mine" : "");
+  const content = document.createElement("div");
+  content.textContent = text;
+  const time = document.createElement("small");
+  time.textContent = (mine ? "Tu" : "Controparte") + " · " + new Date().toLocaleTimeString();
+  bubble.append(content, time);
+  $("messages").append(bubble);
+  $("messages").scrollTop = $("messages").scrollHeight;
+}
+function attachData(connection) {
+  if (data && data !== connection) { connection.close(); return; }
+  data = connection;
+  data.on("open", () => {
+    connectionActive(true);
+    setStatus("Collegato alla controparte", "connected");
+    log("Canale chat e segnalazione attivo.");
   });
-}
-
-function parseSDP(value, expected) {
-  const description = JSON.parse(value);
-  if (!description || description.type !== expected || typeof description.sdp !== "string" || !description.sdp) {
-    throw new Error("Attesa una segnalazione di tipo " + expected + ".");
-  }
-  return description;
-}
-
-async function createOffer() {
-  if (peer) throw new Error("Termina la sessione precedente prima di ricominciare.");
-  log("Richiesta cattura finestra/schermo...");
-  const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-  captured.push(stream);
-  const pc = createPeer();
-  stream.getVideoTracks().forEach((track) => {
-    pc.addTrack(track, stream);
-    track.addEventListener("ended", () => { log("Condivisione terminata."); reset(); }, { once: true });
+  data.on("data", payload => {
+    if (payload && payload.type === "chat" && typeof payload.text === "string") addMessage(payload.text.slice(0, 2000));
   });
-  // Reserve an audio m-line for the remote microphone/system sound.
-  pc.addTransceiver("audio", { direction: "recvonly" });
-  await pc.setLocalDescription(await pc.createOffer());
-  log("Raccolta candidati ICE...");
-  await waitForICE(pc);
-  $("outgoing").value = JSON.stringify(pc.localDescription);
-  setStatus("Offerta pronta");
-  log("Invia l'offerta al PC in modalità Riceve.");
-}
-
-async function captureAudio() {
-  if ($("audioSource").value === "microphone") {
-    const deviceId = $("inputDevice").value;
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: deviceId ? { deviceId: { exact: deviceId } } : true,
-      video: false
-    });
-    captured.push(stream);
-    $("inputDevice").disabled = true;
-    $("audioSource").disabled = true;
-    log("Microfono selezionato: " + (stream.getAudioTracks()[0]?.label || "predefinito"));
-    await refreshDevices();
-    return stream.getAudioTracks()[0];
-  }
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
-    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    systemAudio: "include"
+  data.on("close", () => {
+    connectionActive(false);
+    setStatus("Controparte scollegata", "waiting");
+    log("La controparte si è scollegata.");
   });
-  captured.push(stream);
-  const audio = stream.getAudioTracks()[0];
-  if (!audio) throw new Error("WebView2 non ha fornito l'audio dello schermo. Prova Microfono.");
-  // Keep the video capture track active; only transmit the audio track.
-  return audio;
+  data.on("error", error => failure("La chat non è disponibile.", error));
 }
-
-async function createAnswer() {
-  if (peer) throw new Error("Termina la sessione precedente prima di ricominciare.");
-  const offer = parseSDP($("incoming").value.trim(), "offer");
-  const audioTrack = await captureAudio();
-  const pc = createPeer();
-  await pc.setRemoteDescription(offer);
-  const audioTransceiver = pc.getTransceivers().find((item) => item.receiver.track.kind === "audio");
-  if (!audioTransceiver) throw new Error("L'offerta non contiene un canale audio.");
-  await audioTransceiver.sender.replaceTrack(audioTrack);
-  audioTransceiver.direction = "sendonly";
-  await pc.setLocalDescription(await pc.createAnswer());
-  log("Raccolta candidati ICE...");
-  await waitForICE(pc);
-  $("outgoing").value = JSON.stringify(pc.localDescription);
-  setStatus("Risposta pronta");
-  log("Invia la risposta al PC in modalità Proietta.");
+async function chooseAudioSink(deviceId) {
+  const audio = $("incomingAudio");
+  if (!audio) return;
+  if (typeof audio.setSinkId === "function") {
+    try { await audio.setSinkId(deviceId); } catch (e) { failure("Non riesco a selezionare l'uscita audio.", e); }
+  } else if (deviceId) log("WebView2 non permette di scegliere le cuffie: uso l'uscita predefinita.");
 }
-
-async function applyAnswer() {
-  if (!peer || peer.signalingState !== "have-local-offer") {
-    throw new Error("Crea prima un'offerta in modalità Proietta.");
-  }
-  const answer = parseSDP($("incoming").value.trim(), "answer");
-  await peer.setRemoteDescription(answer);
-  log("Risposta applicata; attesa connessione ICE.");
-}
-
-function updateAudioSource() {
-  $("micSettings").classList.toggle("hidden", $("audioSource").value !== "microphone");
-}
-
-// Enumerate both incoming microphones and outgoing playback devices.
 async function refreshDevices() {
-  if (!navigator.mediaDevices?.enumerateDevices) return;
+  const select = $("deviceSelect");
+  const selected = select.value || (role === "room" ? preferences.inputDeviceId : preferences.outputDeviceId) || "";
+  select.replaceChildren(new Option("Predefinito", ""));
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    for (const [id, kind, fallback] of [
-      ["inputDevice", "audioinput", "Ingresso audio"],
-      ["outputDevice", "audiooutput", "Uscita audio"]
-    ]) {
-      const select = $(id);
-      const selected = select.value;
-      select.replaceChildren(new Option("Dispositivo predefinito", ""));
-      for (const device of devices.filter((d) => d.kind === kind)) {
-        if (device.deviceId && device.deviceId !== "default") {
-          select.add(new Option(device.label || fallback + " " + select.length, device.deviceId));
-        }
-      }
-      if (Array.from(select.options).some((item) => item.value === selected)) select.value = selected;
+    const kind = role === "room" ? "audioinput" : "audiooutput";
+    for (const d of devices.filter(x => x.kind === kind && x.deviceId && x.deviceId !== "default")) {
+      select.add(new Option(d.label || (kind === "audioinput" ? "Ingresso " : "Uscita ") + select.length, d.deviceId));
     }
-  } catch (error) { log("Dispositivi: " + error.message); }
-}
-
-async function chooseOutput() {
-  const audio = $("remoteAudio");
-  if (typeof audio.setSinkId !== "function") {
-    log("Selezione uscita non disponibile in questo WebView2; usa il dispositivo di sistema.");
-    $("outputDevice").value = "";
-    return;
+    if ([...select.options].some(x => x.value === selected)) select.value = selected;
+  } catch (e) {
+    log("Impossibile elencare i dispositivi audio.", e.message, "error");
   }
-  await audio.setSinkId($("outputDevice").value);
-  log("Uscita audio impostata.");
 }
-
-function run(action) {
-  return async () => {
-    try {
-      setStatus("Operazione in corso");
-      await action();
-    } catch (error) {
-      setStatus("Errore");
-      log("ERRORE: " + error.message);
-      // A failed capture or SDP operation must not leave devices active.
-      reset();
-      setStatus("Errore: " + error.message);
-    }
-  };
+async function selectedAudio() {
+  const deviceId = $("deviceSelect").value;
+  const stream = await navigator.mediaDevices.getUserMedia({audio: deviceId ? { deviceId:{exact:deviceId} } : true, video:false});
+  log("Audio della sala acquisito.", stream.getAudioTracks()[0]?.label || "Dispositivo predefinito");
+  return stream;
 }
-
-$("role").addEventListener("change", updateRole);
-$("reset").addEventListener("click", reset);
-$("offer").addEventListener("click", run(createOffer));
-$("answer").addEventListener("click", run(createAnswer));
-$("applyAnswer").addEventListener("click", run(applyAnswer));
-$("devices").addEventListener("click", run(refreshDevices));
-$("refreshInputs").addEventListener("click", run(refreshDevices));
-$("audioSource").addEventListener("change", updateAudioSource);
-navigator.mediaDevices?.addEventListener?.("devicechange", () => { refreshDevices(); });
-$("outputDevice").addEventListener("change", run(chooseOutput));
-$("playAudio").addEventListener("click", run(async () => { await $("remoteAudio").play(); log("Audio riattivato."); }));
-$("copy").addEventListener("click", async () => {
-  if (!$("outgoing").value) return;
+function stopTracks() {
+  localStream?.getTracks().forEach(t => t.stop());
+  localStream = null;
+}
+function closeNetwork() {
+  try { media?.close(); } catch {}
+  try { data?.close(); } catch {}
+  try { peer?.destroy(); } catch {}
+  media = null;
+  data = null;
+  peer = null;
+}
+function disconnect(writeLog = true) {
+  closeNetwork();
+  stopTracks();
+  remoteStream = null;
+  busy = false;
+  projectionChannel.postMessage({type:"stop"});
+  try { projectionPC?.close(); } catch {}
+  projectionPC = null;
+  connectionActive(false);
+  $("startInterpreter").disabled = false;
+  $("joinRoom").disabled = false;
+  $("pinDisplay").textContent = "—";
+  $("copyPIN").disabled = true;
+  if (writeLog) log("Sessione terminata.");
+  setStatus("Non connesso");
+}
+async function startInterpreter() {
+  if (busy) return;
+  busy = true;
+  $("startInterpreter").disabled = true;
+  setStatus("Seleziona la finestra da trasmettere", "waiting");
   try {
-    await navigator.clipboard.writeText($("outgoing").value);
-    $("copyStatus").textContent = "Copiato";
-  } catch {
-    $("outgoing").focus();
-    $("outgoing").select();
-    $("copyStatus").textContent = "Premi Ctrl+C per copiare";
+    localStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
+    localStream.getVideoTracks()[0]?.addEventListener("ended", () => disconnect());
+    const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000);
+    peer = makePeer("sadit-" + pin);
+    peer.on("connection", incoming => {
+      // One room PC per interpreter session.
+      if (data) { incoming.close(); return; }
+      attachData(incoming);
+      setStatus("La sala sta effettuando la connessione", "waiting");
+    });
+    peer.on("call", incomingCall => {
+      if (media) { incomingCall.close(); return; }
+      media = incomingCall;
+      incomingCall.answer(localStream);
+      incomingCall.on("stream", stream => {
+        $("incomingAudio").srcObject = stream;
+        chooseAudioSink($("deviceSelect").value);
+        $("incomingAudio").play().catch(e => log("Premi sulla finestra per autorizzare l'ascolto.", e.message));
+        log("Audio della sala ricevuto.");
+      });
+      incomingCall.on("error", e => failure("Ricezione audio interrotta.", e));
+      incomingCall.on("close", () => log("Flusso audio/video terminato."));
+    });
+    peer.on("open", () => {
+      $("pinDisplay").textContent = pin;
+      $("copyPIN").disabled = false;
+      setStatus("PIN pronto · in attesa della sala", "waiting");
+      log("PIN creato. Comunicalo alla sala.");
+    });
+  } catch (e) {
+    failure("Non riesco ad avviare la condivisione della finestra.", e);
+    disconnect(false);
   }
-});
-window.saditRefreshDevices = refreshDevices;
-window.saditConnected = () => !!peer;
-updateRole();
-refreshDevices();
-log("Pronto. Avvia due copie di SA.DIT, una per modalità.");
+}
+async function joinRoom() {
+  if (busy) return;
+  const pin = $("pinInput").value.trim();
+  if (!/^\d{6}$/.test(pin)) { failure("Inserisci il PIN di sei cifre dell'interprete."); return; }
+  busy = true;
+  $("joinRoom").disabled = true;
+  setStatus("Collegamento con l'interprete", "waiting");
+  try {
+    localStream = await selectedAudio();
+    peer = makePeer();
+    peer.on("open", () => {
+      const id = "sadit-" + pin;
+      const connection = peer.connect(id, {reliable:true});
+      attachData(connection);
+      connection.on("open", () => {
+        media = peer.call(id, localStream);
+        if (!media) { failure("Non riesco a iniziare lo scambio multimediale."); return; }
+        media.on("stream", stream => {
+          remoteStream = stream;
+          log("Video dell'interprete ricevuto.");
+          startProjection().catch(e => failure("Non riesco ad aprire la proiezione.", e));
+        });
+        media.on("error", e => failure("Non riesco a ricevere il video dell'interprete.", e));
+        media.on("close", () => { projectionChannel.postMessage({type:"stop"}); remoteStream = null; });
+      });
+    });
+  } catch (e) {
+    failure("Non riesco a connettere la sala.", e);
+    disconnect(false);
+  }
+}
+async function startProjection() {
+  await Call.ByName("main.ProjectionService.Open");
+}
+function sendChat(event) {
+  event.preventDefault();
+  const text = $("chatText").value.trim();
+  if (!text || !data?.open) return;
+  data.send({type:"chat",text});
+  addMessage(text, true);
+  $("chatText").value = "";
+}
+function sendProjectionOffer() {
+  if (!remoteStream || role !== "room") return;
+  try { projectionPC?.close(); } catch {}
+  projectionPC = new RTCPeerConnection({iceServers:[]});
+  for (const track of remoteStream.getVideoTracks()) projectionPC.addTrack(track, remoteStream);
+  projectionPC.onicecandidate = event => {
+    if (event.candidate) projectionChannel.postMessage({type:"candidate-to-projection", candidate:event.candidate.toJSON()});
+  };
+  projectionPC.createOffer().then(offer => projectionPC.setLocalDescription(offer)).then(() => {
+    projectionChannel.postMessage({type:"offer",sdp:projectionPC.localDescription});
+  }).catch(e => failure("Impossibile alimentare la finestra di proiezione.", e));
+}
+projectionChannel.onmessage = async event => {
+  const msg = event.data || {};
+  if (msg.type === "ready") sendProjectionOffer();
+  if (msg.type === "answer" && projectionPC) {
+    try { await projectionPC.setRemoteDescription(msg.sdp); } catch(e) { failure("Errore nella proiezione locale.",e); }
+  }
+  if (msg.type === "candidate-to-room" && projectionPC) {
+    try { await projectionPC.addIceCandidate(msg.candidate); } catch(e) { log("Candidato ICE locale non valido.",e.message); }
+  }
+};
+$("chooseInterpreter").onclick = () => newRole("interpreter");
+$("chooseRoom").onclick = () => newRole("room");
+$("changeRole").onclick = () => {
+  disconnect(false);
+  role = null;
+  $("workspace").classList.add("hidden");
+  $("roleScreen").classList.remove("hidden");
+  $("changeRole").classList.add("hidden");
+  $("roleTitle").textContent = "Sottotitolazione attiva";
+  $("statusText").textContent = "Seleziona un ruolo per iniziare.";
+};
+$("startInterpreter").onclick = startInterpreter;
+$("joinRoom").onclick = joinRoom;
+$("openProjection").onclick = () => startProjection().catch(e => failure("Non riesco ad aprire la finestra di proiezione.",e));
+$("disconnect").onclick = () => disconnect();
+$("refreshDevice").onclick = refreshDevices;
+$("clearLog").onclick = () => $("log").replaceChildren();
+$("chatForm").onsubmit = sendChat;
+$("copyPIN").onclick = async () => {
+  try { await navigator.clipboard.writeText($("pinDisplay").textContent); }
+  catch { log("Non riesco a copiare il PIN: selezionalo manualmente."); }
+};
+$("pinInput").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g,"").slice(0,6));
+$("deviceSelect").onchange = async () => {
+  const id = $("deviceSelect").value;
+  try {
+    await savePrefs(role === "room" ? {inputDeviceId:id} : {outputDeviceId:id});
+    if (role === "interpreter") await chooseAudioSink(id);
+  } catch(e) { failure("Non riesco a salvare il dispositivo audio.",e); }
+};
+navigator.mediaDevices?.addEventListener?.("devicechange", refreshDevices);
+// Audio element is not visible, but must exist for WebRTC playback.
+const audio = document.createElement("audio");
+audio.id = "incomingAudio";
+audio.autoplay = true;
+document.body.append(audio);
+try {
+  const config = await initSettings({
+    getRole: () => role,
+    setSignaling: cfg => { signaling=cfg; },
+    setPreferences: prefs => { preferences=prefs; },
+    chooseDevice: id => { $("deviceSelect").value=id; if(role==="interpreter")chooseAudioSink(id); },
+    refreshDevices,
+    log,
+  });
+  savePrefs = async partial => {
+    await config.savePrefs(partial);
+    Object.assign(preferences,partial);
+  };
+} catch(e) {
+  failure("Non riesco a leggere le impostazioni.",e);
+}
