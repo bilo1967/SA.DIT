@@ -17,6 +17,9 @@ html,body{margin:0;height:100%;background:#111820;color:#dce7ef;font:13px "Segoe
 #cropToolbar button:disabled{opacity:.5;cursor:default}
 #cropToolbar button:focus-visible{outline:2px solid #7ed7ff;outline-offset:2px}
 #cropToolbar svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#projectionDrag{display:none!important;--wails-draggable:drag;cursor:move!important;user-select:none}
+html.frameless #projectionDrag{display:inline-flex!important}
+html.frameless #stage.cropping #projectionDrag{display:none!important}
 #cropOverlay{position:absolute;inset:0;z-index:2;overflow:hidden;cursor:crosshair;touch-action:none;user-select:none}
 #cropSelection{position:absolute;box-sizing:border-box;border:2px solid #7ed7ff;box-shadow:0 0 0 9999px #0008;pointer-events:none}
 </style>
@@ -26,7 +29,8 @@ html,body{margin:0;height:100%;background:#111820;color:#dce7ef;font:13px "Segoe
   <video id="projection" autoplay playsinline muted></video>
   <div id="placeholder">In attesa dei sottotitoli dell'interprete…</div>
   <div id="cropOverlay" hidden><div id="cropSelection" hidden></div></div>
-  <div id="cropToolbar" role="toolbar" aria-label="Ritaglio della proiezione">
+  <div id="cropToolbar" role="toolbar" aria-label="Controlli della proiezione">
+    <button id="projectionDrag" type="button" aria-label="Sposta finestra di proiezione" title="Trascina per spostare la finestra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18m-13-5 4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4m10-8 4 4-4 4"/></svg></button>
     <button id="cropButton" type="button" disabled title="Seleziona l'area da mostrare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v15h15M3 6h15v15"/></svg>Crop</button>
     <button id="restoreButton" type="button" hidden title="Ripristina immagine completa e dimensioni precedenti"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>Restore</button>
     <button id="cropOK" type="button" hidden disabled title="Conferma ritaglio (Invio)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6"/></svg>OK</button>

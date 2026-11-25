@@ -30,6 +30,7 @@ type Preferences struct {
 	Role          string `json:"role"`
 	InputDeviceID string `json:"inputDeviceId"`
 	OutputDeviceID string `json:"outputDeviceId"`
+	HideProjectionTitlebar bool `json:"hideProjectionTitlebar"`
 }
 
 // ConfigService reads AppData first, then the executable directory.

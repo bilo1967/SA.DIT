@@ -1,6 +1,7 @@
 // SA.DIT - one desktop app, two roles, compact interface, PeerJS and local projection.
 import { Call, Events } from "/wails/runtime.js";
 import { initSettings } from "./settings.js";
+import { initProjectionWindow } from "./projection-window.js";
 
 const $ = id => document.getElementById(id);
 let role = null;
@@ -20,6 +21,12 @@ let projectionProbeCount = 0;
 let reserveVideoTimer = null;
 const projectionEmit = (name, payload={}) => Events.Emit("sadit:projection:" + name, payload)
   .catch(error => log("Errore di comunicazione con la proiezione.", error.message, "error"));
+
+const projectionWindow = initProjectionWindow({
+  onShown: () => { if (remoteStream && !projectionConnected) probeProjection(); },
+  savePreference: partial => savePrefs(partial),
+  failure,
+});
 
 // Keep the full log in the DOM; display only user-facing events.
 const essentialLog = /modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
@@ -421,18 +428,8 @@ async function joinRoom() {
   }
 }
 async function startProjection() {
-  // A projection window can be closed and opened again during a session.
-  // A new local handshake must be permitted even if an older one succeeded.
-  if (remoteStream) {
-    clearTimeout(projectionHandshakeTimer);
-    try { projectionPC?.close(); } catch {}
-    projectionPC = null;
-    projectionSession = null;
-    projectionConnected = false;
-    pendingProjectionICE = [];
-  }
-  await Call.ByName("main.ProjectionService.Open");
-  if (remoteStream) probeProjection();
+  // Revealing the same page preserves both the WebRTC connection and its crop.
+  await projectionWindow.show();
 }
 function probeProjection() {
   if (!remoteStream || projectionConnected) return;
@@ -663,7 +660,6 @@ $("startInterpreter").onclick = () => busy && peer ? confirmDisconnect() : start
 $("joinRoom").onclick = () => busy && peer ? confirmDisconnect() : joinRoom();
 $("changeSharing").onclick = changeSharing;
 $("stopSharing").onclick = stopSharing;
-$("openProjection").onclick = () => startProjection().catch(e => failure("Non riesco ad aprire la finestra di proiezione.",e));
 // The primary connection buttons handle confirmed disconnection.
 $("refreshDevice").onclick = () => refreshDevices(true);
 $("clearLog").onclick = () => $("log").replaceChildren();
@@ -741,7 +737,10 @@ try {
   const config = await initSettings({
     getRole: () => role,
     setSignaling: cfg => { signaling=cfg; },
-    setPreferences: prefs => { preferences=prefs; },
+    setPreferences: prefs => {
+      preferences = prefs;
+      projectionWindow.applyPreference(prefs).catch(e => failure("Non riesco ad applicare le preferenze della proiezione.", e));
+    },
     chooseDevice: id => { $("deviceSelect").value=id; if(role==="interpreter")chooseAudioSink(id); },
     refreshDevices,
     log,

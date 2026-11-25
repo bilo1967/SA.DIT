@@ -57,3 +57,11 @@ Passa il mouse sulla proiezione e premi **Crop**. Trascina un rettangolo sul vid
 Verifica la selezione anche con bande nere, trascinando in entrambe le direzioni e ridimensionando la finestra dopo la conferma. Una nuova sessione riparte dall'immagine completa.
 
 Chiudendo la finestra principale, anche la proiezione deve chiudersi. Riducendo a icona la principale, la proiezione deve rimanere utilizzabile. Chiudere la sola proiezione deve lasciare aperta l'applicazione.
+
+## Barra titolo e visibilità della proiezione
+
+Nella Sala, **Mostra/Nascondi finestra di proiezione** alterna la visibilità della stessa finestra: crop, dimensioni, posizione e video devono restare invariati. La X di sistema nasconde la proiezione; non interrompe la sessione.
+
+**Nascondi barra titolo finestra di proiezione** cambia immediatamente la cornice nativa e conserva la preferenza per gli avvii successivi. Senza barra titolo, passa il mouse sulla proiezione e trascina l'icona con le quattro frecce per spostarla. I bordi restano ridimensionabili. Durante il crop, la maniglia di spostamento è nascosta per non interferire con la selezione.
+
+Verifica anche che chiudere l'app principale chiuda entrambe le finestre, mentre minimizzarla lasci aperta la proiezione.

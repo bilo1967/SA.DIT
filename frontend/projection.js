@@ -1,10 +1,14 @@
 // SA.DIT projection: independent window, Wails events for local WebRTC signaling.
-import { Events } from "/wails/runtime.js";
+import { Call, Events } from "/wails/runtime.js";
 import { initProjectionCrop } from "./projection-crop.js";
 
 const video = document.getElementById("projection");
 const placeholder = document.getElementById("placeholder");
 const projectionCrop = initProjectionCrop(video);
+// A frameless projection exposes a hover-only native drag handle.
+Call.ByName("main.ProjectionService.IsTitlebarHidden")
+  .then(hidden => document.documentElement.classList.toggle("frameless", hidden))
+  .catch(console.error);
 let pc = null;
 let activeSession = null;
 let earlyCandidates = [];

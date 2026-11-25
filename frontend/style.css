@@ -56,3 +56,7 @@ fieldset{border:1px solid #dae5ed;border-radius:8px;margin:12px 0;padding:12px}l
 
 /* Technical entries remain available for Copy, but do not clutter the UI. */
 .log-entry.diagnostic,.log-entry .detail{display:none}
+
+/* Compact native projection preferences, alongside the room controls. */
+.projection-options{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;line-height:1.3}
+#hideProjectionTitlebar{min-height:0;width:14px;height:14px;margin:0;padding:0;flex:none}
