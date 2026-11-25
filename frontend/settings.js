@@ -99,7 +99,12 @@ export async function initSettings(interfaceAPI) {
   $("openSettings").addEventListener("click", showSettings);
   $("cancelSettings").addEventListener("click", () => $("settingsDialog").close());
   $("closeSettings").addEventListener("click", () => $("settingsDialog").close());
-  $("addICE").addEventListener("click", () => addICE());
+  $("addICE").addEventListener("click", () => {
+    addICE();
+    const rows = $("iceRows");
+    rows.scrollTop = rows.scrollHeight;
+    rows.lastElementChild.querySelector("input").focus();
+  });
   $("settingsRefreshDevices").addEventListener("click", async () => { await app.refreshDevices(); updateDeviceOptions(); });
   $("settingsForm").addEventListener("submit", saveDialog);
   return { savePrefs, getPreferences: () => preferences };

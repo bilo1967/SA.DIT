@@ -30,13 +30,38 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 .bubble.mine{align-self:flex-end;background:#dff0fa}.bubble small{display:block;font-size:10px;color:#7c8c98;margin-top:4px}
 .chat-input{padding:11px;border-top:1px solid #dce7ef;display:flex;gap:9px}.chat-input input{flex:1}
 .statusbar{height:30px;flex:none;background:#eaf1f7;border-top:1px solid #d5e2ed;display:flex;justify-content:space-between;align-items:center;padding:0 15px;font-size:11px;color:#61768a}
-dialog{width:min(760px,92vw);max-height:85vh;overflow:auto;border:1px solid #c7d7e5;border-radius:12px;padding:20px 24px;box-shadow:0 15px 45px #213b5360}
-dialog::backdrop{background:#304b6488}.dialog-header,.dialog-actions{display:flex;align-items:center;justify-content:space-between}.dialog-header{margin-bottom:12px}.dialog-actions{justify-content:flex-end;gap:10px;margin-top:14px}
-fieldset{border:1px solid #dae5ed;border-radius:8px;margin:12px 0;padding:12px}legend{font-weight:600;color:#3e5871}
-.settings-grid{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end}.settings-grid label{display:flex;flex-direction:column;gap:4px}
-.settings-grid .check-label{flex-direction:row;align-items:center;padding-bottom:8px}
-#iceRows .ice-row{display:flex;gap:7px;margin:6px 0}.ice-row input{width:23%}.ice-row .ice-url{flex:1}
-#settingsDevice{margin:7px 10px;width:min(330px,65%)}.error{color:#b33b3b}
+/* A fixed dialog keeps the device, network fields and actions in place. */
+#settingsDialog{width:min(760px,92vw);height:540px;max-height:calc(100dvh - 28px);overflow:hidden;border:1px solid #c7d7e5;border-radius:12px;padding:14px 18px;box-shadow:0 15px 45px #213b5360}
+#settingsDialog::backdrop{background:#304b6488}
+#settingsForm{height:100%;min-height:0;display:flex;flex-direction:column;gap:10px}
+.dialog-header,.dialog-actions{display:flex;align-items:center;justify-content:space-between}
+.dialog-header{flex:none;height:28px;margin:0}
+#settingsDialog fieldset{flex:none;min-width:0;border:1px solid #dae5ed;border-radius:8px;margin:0;padding:8px 10px}
+#settingsDialog legend{font-weight:600;color:#3e5871;padding:0 4px}
+#settingsDialog input:not([type="checkbox"]),#settingsDialog select{min-height:31px;padding:4px 9px}
+#settingsDialog input[type="checkbox"]{min-height:0;width:14px;height:14px;margin:0;padding:0}
+#settingsDialog button{padding:5px 10px}
+.settings-device-row{display:flex;align-items:center;gap:8px}
+.settings-device-row label,.settings-device-row button{flex:none}
+#settingsDevice{flex:1;min-width:0;width:auto;margin:0}
+.settings-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(70px,1fr) minmax(70px,1fr) auto;gap:10px;align-items:end}
+.settings-grid label{display:flex;flex-direction:column;gap:3px}
+.settings-grid .check-label{height:31px;flex-direction:row;align-items:center;gap:6px;padding:0}
+/* Only the server list scrolls; adding rows cannot move the footer. */
+#settingsDialog .settings-ice{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#settingsDialog .ice-legend{display:flex;align-items:center;gap:10px;width:100%;padding:0}
+.ice-legend>span:first-child{flex:none}
+.legend-rule{flex:1;border-top:1px solid #dae5ed}
+#settingsDialog #addICE{flex:none;min-height:26px;padding:3px 8px;font-size:12px;font-weight:400}
+#iceRows{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;padding-right:4px}
+#iceRows:focus-visible{outline:2px solid #8fbedb;outline-offset:1px}
+#iceRows .ice-row{display:flex;align-items:center;gap:7px;margin:6px 0}
+.ice-row input{width:23%}.ice-row .ice-url{flex:1}
+#settingsDialog .ice-row button{flex:none;padding:4px 8px;font-size:12px}
+.dialog-footer{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding-top:8px;border-top:1px solid #e3eaf1}
+.dialog-actions{flex:none;justify-content:flex-end;gap:10px;margin:0}
+#settingsError{flex:1;min-width:0;height:32px;overflow:auto;margin:0;font-size:12px;line-height:16px}
+.error{color:#b33b3b}
 
 .audio-label{display:flex;align-items:center;gap:7px;margin:0}.audio-label>span:first-child{display:flex;align-items:center;flex:none}
 .audio-label svg{width:19px;height:19px;stroke:#176a9f;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}

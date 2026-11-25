@@ -52,8 +52,15 @@
 </div>
 <dialog id="settingsDialog" aria-label="Impostazioni SA.DIT">
   <form id="settingsForm" method="dialog">
-    <div class="dialog-header"><h2>Impostazioni</h2><button type="button" id="cancelSettings" class="subtle">✕</button></div>
-    <fieldset><legend>Signaling PeerJS</legend>
+    <div class="dialog-header"><h2>Impostazioni</h2><button type="button" id="cancelSettings" class="subtle" aria-label="Chiudi impostazioni">✕</button></div>
+    <fieldset class="settings-audio"><legend>Dispositivo audio</legend>
+      <div class="settings-device-row">
+        <label for="settingsDevice">Dispositivo preferito</label>
+        <select id="settingsDevice"><option value="">Predefinito</option></select>
+        <button type="button" id="settingsRefreshDevices" class="secondary">Aggiorna elenco</button>
+      </div>
+    </fieldset>
+    <fieldset class="settings-signaling"><legend>Signaling PeerJS</legend>
       <div class="settings-grid">
         <label>Server<input id="peerHost" required></label>
         <label>Porta<input id="peerPort" type="number" min="1" max="65535" required></label>
@@ -61,18 +68,13 @@
         <label class="check-label"><input type="checkbox" id="peerSecure"> TLS</label>
       </div>
     </fieldset>
-    <fieldset><legend>Server ICE (STUN / TURN)</legend>
-      <div id="iceRows"></div>
-      <button type="button" id="addICE" class="secondary">Aggiungi server</button>
-      <p class="hint">Nessun TURN predefinito. Le credenziali restano sul PC.</p>
+    <fieldset class="settings-ice"><legend class="ice-legend"><span>Server ICE (STUN / TURN)</span><span class="legend-rule" aria-hidden="true"></span><button type="button" id="addICE" class="secondary">Aggiungi server</button></legend>
+      <div id="iceRows" tabindex="0" role="region" aria-label="Elenco server ICE e STUN"></div>
     </fieldset>
-    <fieldset><legend>Dispositivo audio</legend>
-      <label for="settingsDevice">Dispositivo preferito</label>
-      <select id="settingsDevice"><option value="">Predefinito</option></select>
-      <button type="button" id="settingsRefreshDevices" class="secondary">Aggiorna elenco</button>
-    </fieldset>
-    <p id="settingsError" class="error" role="alert"></p>
-    <div class="dialog-actions"><button type="button" id="closeSettings" class="secondary">Annulla</button><button type="submit" class="primary">Salva</button></div>
+    <div class="dialog-footer">
+      <p id="settingsError" class="error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" id="closeSettings" class="secondary">Annulla</button><button type="submit" class="primary">Salva</button></div>
+    </div>
   </form>
 </dialog>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
