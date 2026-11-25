@@ -73,6 +73,8 @@ function newRole(next) {
     ? '<svg viewBox="0 0 24 24"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="13" width="4" height="8" rx="2"/><rect x="17" y="13" width="4" height="8" rx="2"/></svg>'
     : '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M7 21h10"/></svg>';
   $("deviceSelect").replaceChildren(new Option("Predefinito", ""));
+  $("videoDiagnostic").classList.toggle("hidden", role !== "room");
+  if (role === "room") $("videoDiagnosticStatus").textContent = "In attesa di connessione";
   refreshDevices(true);
   setStatus("Non connesso");
   log(role === "interpreter" ? "Modalità Interprete pronta." : "Modalità Sala pronta.");
@@ -227,7 +229,7 @@ function disconnect(writeLog = true) {
   $("stopSharing").classList.add("hidden");
   $("pinInput").disabled = false;
   $("pinDisplay").textContent = "—";
-  $("videoDiagnostic").classList.add("hidden");
+  $("videoDiagnostic").classList.toggle("hidden", role !== "room");
   $("copyPIN").disabled = true;
   $("incomingAudio").srcObject = null;
   if (writeLog) log("Sessione terminata.");
@@ -240,6 +242,8 @@ async function startInterpreter() {
   setStatus("Seleziona la finestra da trasmettere", "waiting");
   try {
     localStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
+    log("Finestra selezionata: cattura video attivata.",
+      localStream.getVideoTracks().map(t => t.label + " · " + t.readyState + " · " + JSON.stringify(t.getSettings())).join("; "));
     localStream.getVideoTracks()[0]?.addEventListener("ended", () => { if(!switchingSharing) stopSharing(); });
     const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000);
     peer = makePeer("sadit-" + pin);
@@ -250,10 +254,16 @@ async function startInterpreter() {
       setStatus("La sala sta effettuando la connessione", "waiting");
     });
     peer.on("call", incomingCall => {
-      if (media) { incomingCall.close(); return; }
+      log("Chiamata multimediale in arrivo dalla Sala.", "Peer: " + incomingCall.peer);
+      if (media) { log("Chiamata duplicata rifiutata."); incomingCall.close(); return; }
       media = incomingCall;
       incomingCall.answer(localStream);
+      log("Risposta alla chiamata inviata con video.",
+        "Tracce video: " + localStream.getVideoTracks().length + " · " +
+        localStream.getVideoTracks().map(t => t.readyState + ":" + t.label).join(", "));
+      observeMediaConnection(incomingCall, "Interprete");
       incomingCall.on("stream", stream => {
+        log("Interprete: flusso audio remoto ricevuto.", "Tracce audio: " + stream.getAudioTracks().length);
         $("incomingAudio").srcObject = stream;
         chooseAudioSink($("deviceSelect").value);
         $("incomingAudio").play().catch(e => log("Premi sulla finestra per autorizzare l'ascolto.", e.message));
@@ -271,6 +281,7 @@ async function startInterpreter() {
       });
     });
     peer.on("open", () => {
+      log("Interprete registrato su PeerJS, pronto a ricevere chiamate.");
       $("startInterpreter").disabled = false;
       $("startInterpreter").textContent = "Disconnettiti";
       $("startInterpreter").classList.add("is-connected");
@@ -299,11 +310,16 @@ async function joinRoom() {
       $("joinRoom").textContent = "Disconnettiti";
       $("joinRoom").classList.add("is-connected");
       const id = "sadit-" + pin;
+      log("Sala: richiesta connessione dati a PeerJS.", "Peer remoto: " + id);
       const connection = peer.connect(id, {reliable:true});
       attachData(connection);
       connection.on("open", () => {
+        log("Sala: invio chiamata audio all'Interprete.",
+          "Tracce audio: " + localStream.getAudioTracks().length);
         media = peer.call(id, localStream);
         if (!media) { failure("Non riesco a iniziare lo scambio multimediale."); return; }
+        observeMediaConnection(media, "Sala");
+        $("videoDiagnosticStatus").textContent = "Chiamata inviata, attesa video";
         media.on("stream", stream => {
           if (media === null) return;
           remoteStream = stream;
@@ -367,6 +383,35 @@ function probeProjection() {
   projectionEmit("probe");
   clearTimeout(projectionHandshakeTimer);
   projectionHandshakeTimer = setTimeout(probeProjection, 800);
+}
+
+// Inspect both ends, even if PeerJS never emits a remote 'stream' event.
+function observeMediaConnection(call, side) {
+  log(side + ": chiamata PeerJS creata.", "peer=" + call.peer + " · open=" + call.open);
+  let checks = 0;
+  const timer = setInterval(async () => {
+    if (media !== call || checks++ >= 8) { clearInterval(timer); return; }
+    const pc = call.peerConnection;
+    if (!pc) {
+      log(side + ": RTCPeerConnection non ancora disponibile.", "Controllo " + checks);
+      return;
+    }
+    const incoming = pc.getReceivers().map(r => r.track.kind + ":" + r.track.readyState + ":muted=" + r.track.muted);
+    const outgoing = pc.getSenders().map(s => s.track ? s.track.kind + ":" + s.track.readyState : "nessuna traccia");
+    log(side + ": diagnostica della chiamata.", 
+      "ICE=" + pc.iceConnectionState + " · Connessione=" + pc.connectionState +
+      " · Signaling=" + pc.signalingState +
+      " · RX=[" + incoming.join(", ") + "]" +
+      " · TX=[" + outgoing.join(", ") + "]");
+    if (side === "Sala" && !remoteStream && pc.getReceivers().some(r => r.track.kind === "video")) {
+      $("videoDiagnosticStatus").textContent = "Traccia video rilevata, attesa dati";
+    }
+  }, 2500);
+  call.on("error", error => {
+    if (media === call) log(side + ": errore chiamata multimediale.", error.message, "error");
+    clearInterval(timer);
+  });
+  call.on("close", () => clearInterval(timer));
 }
 
 // Periodic diagnostics: bytes and decoded frames from the remote PeerJS call.
