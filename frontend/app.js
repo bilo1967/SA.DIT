@@ -10,6 +10,7 @@ let peer = null, data = null, media = null;
 let localStream = null, remoteStream = null;
 let busy = false;
 let projectionPC = null;
+let pendingProjectionICE = [];
 const projectionChannel = new BroadcastChannel("sadit-projection");
 
 function log(message, technical = "", level = "info") {
@@ -161,6 +162,7 @@ function disconnect(writeLog = true) {
   projectionChannel.postMessage({type:"stop"});
   try { projectionPC?.close(); } catch {}
   projectionPC = null;
+  pendingProjectionICE = [];
   connectionActive(false);
   $("startInterpreter").disabled = false;
   $("joinRoom").disabled = false;
@@ -254,6 +256,7 @@ function sendChat(event) {
 function sendProjectionOffer() {
   if (!remoteStream || role !== "room") return;
   try { projectionPC?.close(); } catch {}
+  pendingProjectionICE = [];
   projectionPC = new RTCPeerConnection({iceServers:[]});
   for (const track of remoteStream.getVideoTracks()) projectionPC.addTrack(track, remoteStream);
   projectionPC.onicecandidate = event => {
@@ -267,10 +270,17 @@ projectionChannel.onmessage = async event => {
   const msg = event.data || {};
   if (msg.type === "ready") sendProjectionOffer();
   if (msg.type === "answer" && projectionPC) {
-    try { await projectionPC.setRemoteDescription(msg.sdp); } catch(e) { failure("Errore nella proiezione locale.",e); }
+    try {
+      await projectionPC.setRemoteDescription(msg.sdp);
+      for(const candidate of pendingProjectionICE) await projectionPC.addIceCandidate(candidate);
+      pendingProjectionICE = [];
+    } catch(e) { failure("Errore nella proiezione locale.",e); }
   }
   if (msg.type === "candidate-to-room" && projectionPC) {
-    try { await projectionPC.addIceCandidate(msg.candidate); } catch(e) { log("Candidato ICE locale non valido.",e.message); }
+    try {
+      if(projectionPC.remoteDescription) await projectionPC.addIceCandidate(msg.candidate);
+      else pendingProjectionICE.push(msg.candidate);
+    } catch(e) { log("Candidato ICE locale non valido.",e.message); }
   }
 };
 $("chooseInterpreter").onclick = () => newRole("interpreter");
