@@ -26,9 +26,9 @@ By default the client uses the public `0.peerjs.com` server, Google STUN servers
 
 ## Building Windows
 
-GitHub Actions workflow **Windows prototype** produces the portable `SA.DIT.exe` artifact. The build pins and embeds the PeerJS 1.5.5 browser bundle; therefore the finished app does not need a CDN at runtime.
+GitHub Actions workflow **Windows prototype** produces the portable `SA.DIT.exe` artifact. The prototype currently loads the pinned PeerJS 1.5.5 client from jsDelivr at runtime. Internet access to the CDN is required at launch; a fully self-contained client bundle is a separate follow-up.
 
-To build from source locally, retrieve the matching PeerJS 1.5.5 file into `frontend/peerjs.min.js` before running `go build -tags production -o SA.DIT.exe .`. The project needs Go 1.26+ and Wails 3. For Windows, WebView2 is required.
+To build from source locally run `go build -tags production -o SA.DIT.exe .`. The project needs Go 1.26+ and Wails 3. For Windows, WebView2 is required.
 
 ## Status and limitations
 
