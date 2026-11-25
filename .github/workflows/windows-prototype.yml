@@ -26,7 +26,8 @@ jobs:
       - name: Bundle PeerJS locally for portable builds
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js" -OutFile "frontend/peerjs.min.js"
+          npm install --prefix .peerjs-deps --no-save --ignore-scripts --no-audit --no-fund peerjs@1.5.5
+          Copy-Item ".peerjs-deps/node_modules/peerjs/dist/peerjs.min.js" "frontend/peerjs.min.js"
           if ((Get-Item "frontend/peerjs.min.js").Length -lt 100000) { throw "PeerJS bundle missing or truncated" }
       - name: Resolve Go dependencies
         shell: pwsh
