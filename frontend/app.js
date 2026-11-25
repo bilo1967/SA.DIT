@@ -11,6 +11,8 @@ let localStream = null, remoteStream = null;
 let busy = false;
 let projectionPC = null;
 let pendingProjectionICE = [];
+let projectionHandshakeTimer = null;
+let projectionConnected = false;
 const projectionChannel = new BroadcastChannel("sadit-projection");
 
 function log(message, technical = "", level = "info") {
@@ -163,6 +165,8 @@ function disconnect(writeLog = true) {
   try { projectionPC?.close(); } catch {}
   projectionPC = null;
   pendingProjectionICE = [];
+  projectionConnected = false;
+  clearTimeout(projectionHandshakeTimer);
   connectionActive(false);
   $("startInterpreter").disabled = false;
   $("joinRoom").disabled = false;
@@ -244,6 +248,14 @@ async function joinRoom() {
 }
 async function startProjection() {
   await Call.ByName("main.ProjectionService.Open");
+  // The window may have announced ready before the remote stream arrived.
+  if (remoteStream) probeProjection();
+}
+function probeProjection() {
+  if (!remoteStream || projectionConnected) return;
+  projectionChannel.postMessage({type:"probe"});
+  clearTimeout(projectionHandshakeTimer);
+  projectionHandshakeTimer = setTimeout(probeProjection, 800);
 }
 function sendChat(event) {
   event.preventDefault();
@@ -255,9 +267,15 @@ function sendChat(event) {
 }
 function sendProjectionOffer() {
   if (!remoteStream || role !== "room") return;
+  clearTimeout(projectionHandshakeTimer);
+  projectionConnected = true;
   try { projectionPC?.close(); } catch {}
   pendingProjectionICE = [];
   projectionPC = new RTCPeerConnection({iceServers:[]});
+  projectionPC.onconnectionstatechange = () => {
+    if (projectionPC?.connectionState === "connected") log("Finestra di proiezione collegata.");
+    if (projectionPC?.connectionState === "failed") failure("Il video non raggiunge la finestra di proiezione.");
+  };
   for (const track of remoteStream.getVideoTracks()) projectionPC.addTrack(track, remoteStream);
   projectionPC.onicecandidate = event => {
     if (event.candidate) projectionChannel.postMessage({type:"candidate-to-projection", candidate:event.candidate.toJSON()});
@@ -268,7 +286,7 @@ function sendProjectionOffer() {
 }
 projectionChannel.onmessage = async event => {
   const msg = event.data || {};
-  if (msg.type === "ready") sendProjectionOffer();
+  if (msg.type === "ready" && !projectionConnected) sendProjectionOffer();
   if (msg.type === "answer" && projectionPC) {
     try {
       await projectionPC.setRemoteDescription(msg.sdp);

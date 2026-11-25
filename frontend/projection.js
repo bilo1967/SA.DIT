@@ -17,6 +17,7 @@ channel.onmessage = async event => {
   const msg = event.data || {};
   try {
     if (msg.type === "stop") { stop(); return; }
+    if (msg.type === "probe") { channel.postMessage({type:"ready"}); return; }
     if (msg.type === "offer") {
       stop();
       pc = new RTCPeerConnection({iceServers:[]});
