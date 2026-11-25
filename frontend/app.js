@@ -262,6 +262,8 @@ $("copy").addEventListener("click", async () => {
     $("copyStatus").textContent = "Premi Ctrl+C per copiare";
   }
 });
+window.saditRefreshDevices = refreshDevices;
+window.saditConnected = () => !!peer;
 updateRole();
 refreshDevices();
 log("Pronto. Avvia due copie di SA.DIT, una per modalità.");
