@@ -29,3 +29,13 @@ Ripeti su due macchine, ciascuna con una sola istanza. La configurazione PeerJS/
 ## Segnalazione problemi
 
 Riporta il risultato di questi test: apertura dell'app, scelta ruolo, acquisizione finestra, PIN, chat, audio, finestra di proiezione, eventuali messaggi di errore nel log e versione del sistema operativo.
+
+## Regressioni: proiezione e riconnessione
+
+1. Connettiti come Interprete e Sala. Nella Sala verifica la riga di log **Video dell'interprete ricevuto** e poi **La finestra di proiezione ha accettato il collegamento video** / **Proiezione attiva**. Il video deve essere visibile nella finestra separata.
+2. Riduci a icona la finestra principale della Sala. La proiezione deve rimanere aperta e utilizzabile, senza bloccare l'interfaccia principale.
+3. A sessione attiva, apri la select degli ingressi della Sala e cambia microfono. L'interprete deve continuare a sentire il nuovo ingresso; la chat non deve scollegarsi.
+4. Premi **Disconnettiti** e conferma, poi avvia una nuova sessione (nuovo PIN dell'Interprete). Verifica che la chat torni utilizzabile in entrambi i sensi e che audio e proiezione riprendano.
+5. Disconnetti prima un lato, poi ripeti invertendo i ruoli. Verifica che nessun vecchio canale PeerJS impedisca il successivo collegamento.
+
+La proiezione usa ora il bus eventi Wails per negoziare un secondo collegamento WebRTC **locale**. I messaggi tecnici nel log distinguono ricezione remota del video, negoziazione e riproduzione nella finestra separata. La build CI verifica compilazione e test Go, non il comportamento dei dispositivi su Windows.
