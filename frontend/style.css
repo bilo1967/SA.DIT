@@ -37,3 +37,12 @@ fieldset{border:1px solid #dae5ed;border-radius:8px;margin:12px 0;padding:12px}l
 .settings-grid .check-label{flex-direction:row;align-items:center;padding-bottom:8px}
 #iceRows .ice-row{display:flex;gap:7px;margin:6px 0}.ice-row input{width:23%}.ice-row .ice-url{flex:1}
 #settingsDevice{margin:7px 10px;width:min(330px,65%)}.error{color:#b33b3b}
+
+.audio-label{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.audio-label svg{width:19px;height:19px;stroke:#176a9f;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.projection-button{display:flex;align-items:center;justify-content:center;gap:10px;background:#dff0ff;border-color:#78aed3;color:#145d91;font-weight:650;padding:12px 14px}
+.projection-button:hover:not(:disabled){background:#cce8ff}
+#startInterpreter.is-connected,#joinRoom.is-connected{background:#f8eeee;border-color:#dba7a7;color:#a53c3c}
+.pin-display{flex-wrap:wrap;gap:9px}.pin-display strong{font-size:22px}
+#changeSharing{background:#e6f3fc;border-color:#8fbedb;color:#155d88}
+#stopSharing{color:#a64747}

@@ -26,19 +26,19 @@
         <h2 id="controlTitle">Connessione</h2>
         <div id="interpreterControls" class="hidden">
           <button id="startInterpreter" class="primary full">Condividi finestra e ottieni PIN</button>
-          <div class="pin-display">PIN: <strong id="pinDisplay">—</strong><button id="copyPIN" class="small-button" disabled>Copia</button></div>
+          <div class="pin-display">PIN: <strong id="pinDisplay">—</strong><button id="copyPIN" class="small-button" disabled>Copia</button><button id="changeSharing" class="small-button hidden">Cambia condivisione</button><button id="stopSharing" class="subtle hidden">Interrompi</button></div>
           <p class="hint">Comunica il PIN al PC di sala.</p>
         </div>
         <div id="roomControls" class="hidden">
           <label for="pinInput">PIN dell'interprete</label>
           <div class="join-row"><input id="pinInput" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off"><button id="joinRoom" class="primary">Connettiti</button></div>
-          <button id="openProjection" class="secondary full">Apri finestra di proiezione</button>
+          <button id="openProjection" class="projection-button full"><svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><rect x="2.5" y="3" width="19" height="14" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M9 21h6m-3-4v4" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="m10 8 5 2-5 2z" fill="currentColor"/></svg> Apri finestra di proiezione</button>
         </div>
         <div class="device-group">
-          <label id="deviceLabel" for="deviceSelect">Dispositivo audio</label>
+          <label class="audio-label" for="deviceSelect"><span id="deviceIcon" aria-hidden="true"></span><span id="deviceLabel">Dispositivo audio</span></label>
           <div class="device-row"><select id="deviceSelect"><option value="">Predefinito</option></select><button id="refreshDevice" class="small-button" title="Aggiorna dispositivi">↻</button></div>
         </div>
-        <div class="connection-indicator"><span id="connDot" class="dot"></span><strong id="connLabel">Non connesso</strong><button id="disconnect" class="subtle" disabled>Disconnetti</button></div>
+        <div class="connection-indicator"><span id="connDot" class="dot"></span><strong id="connLabel">Non connesso</strong></div>
       </div>
       <section class="log-section">
         <div class="section-head"><h2>Registro eventi</h2><button id="clearLog" class="subtle">Pulisci</button></div>
