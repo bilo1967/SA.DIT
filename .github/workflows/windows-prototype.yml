@@ -6,7 +6,7 @@ on:
     branches:
       - prototype/media-validation
     paths:
-      - "main.go"
+      - "*.go"
       - "go.mod"
       - "go.sum"
       - "frontend/**"
@@ -31,6 +31,9 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
           & "$(go env GOPATH)\\bin\\wails3.exe" generate bindings -names
+      - name: Run Go tests
+        shell: pwsh
+        run: go test ./...
       - name: Build Windows desktop executable
         shell: pwsh
         run: |
