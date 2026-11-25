@@ -9,6 +9,7 @@ let savePrefs = async () => {};
 let peer = null, data = null, media = null;
 let localStream = null, remoteStream = null;
 let busy = false;
+let switchingSharing = false;
 let projectionPC = null;
 let pendingProjectionICE = [];
 let projectionHandshakeTimer = null;
@@ -44,7 +45,9 @@ function setStatus(label, kind = "") {
   $("connDot").className = "dot " + kind;
 }
 function connectionActive(yes) {
-  $("disconnect").disabled = !yes;
+  $("changeSharing").classList.toggle("hidden", !(yes && role === "interpreter"));
+  $("stopSharing").classList.toggle("hidden", !(yes && role === "interpreter"));
+  $("pinInput").disabled = yes;
   $("chatText").disabled = !yes;
   $("sendChat").disabled = !yes;
   $("chatPresence").textContent = yes ? "Connessa" : "Non connessa";
@@ -61,8 +64,11 @@ function newRole(next) {
   $("interpreterControls").classList.toggle("hidden", role !== "interpreter");
   $("roomControls").classList.toggle("hidden", role !== "room");
   $("deviceLabel").textContent = role === "interpreter" ? "Dispositivo di ascolto" : "Ingresso audio della sala";
+  $("deviceIcon").innerHTML = role === "interpreter"
+    ? '<svg viewBox="0 0 24 24"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="13" width="4" height="8" rx="2"/><rect x="17" y="13" width="4" height="8" rx="2"/></svg>'
+    : '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M7 21h10"/></svg>';
   $("deviceSelect").replaceChildren(new Option("Predefinito", ""));
-  refreshDevices();
+  refreshDevices(true);
   setStatus("Non connesso");
   log(role === "interpreter" ? "Modalità Interprete pronta." : "Modalità Sala pronta.");
   savePrefs({role: next}).catch(e => log("Non riesco a memorizzare il ruolo.", e.message, "error"));
@@ -123,13 +129,21 @@ async function chooseAudioSink(deviceId) {
     try { await audio.setSinkId(deviceId); } catch (e) { failure("Non riesco a selezionare l'uscita audio.", e); }
   } else if (deviceId) log("WebView2 non permette di scegliere le cuffie: uso l'uscita predefinita.");
 }
-async function refreshDevices() {
+async function refreshDevices(requestPermission = false) {
   const select = $("deviceSelect");
   const selected = select.value || (role === "room" ? preferences.inputDeviceId : preferences.outputDeviceId) || "";
   select.replaceChildren(new Option("Predefinito", ""));
   try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
+    let devices = await navigator.mediaDevices.enumerateDevices();
     const kind = role === "room" ? "audioinput" : "audiooutput";
+    // WebView2 can hide audio inputs until the user authorizes microphone access.
+    if (role === "room" && requestPermission && devices.filter(d=>d.kind==="audioinput").length <= 1 && !localStream) {
+      try {
+        const temporary = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+        devices = await navigator.mediaDevices.enumerateDevices();
+        temporary.getTracks().forEach(track=>track.stop());
+      } catch(e) { log("Microfono non autorizzato. Verifica i permessi di Windows.",e.message,"error"); }
+    }
     for (const d of devices.filter(x => x.kind === kind && x.deviceId && x.deviceId !== "default")) {
       select.add(new Option(d.label || (kind === "audioinput" ? "Ingresso " : "Uscita ") + select.length, d.deviceId));
     }
@@ -142,6 +156,7 @@ async function selectedAudio() {
   const deviceId = $("deviceSelect").value;
   const stream = await navigator.mediaDevices.getUserMedia({audio: deviceId ? { deviceId:{exact:deviceId} } : true, video:false});
   log("Audio della sala acquisito.", stream.getAudioTracks()[0]?.label || "Dispositivo predefinito");
+  refreshDevices(false);
   return stream;
 }
 function stopTracks() {
@@ -170,8 +185,16 @@ function disconnect(writeLog = true) {
   connectionActive(false);
   $("startInterpreter").disabled = false;
   $("joinRoom").disabled = false;
+  $("startInterpreter").textContent = "Condividi finestra e ottieni PIN";
+  $("joinRoom").textContent = "Connettiti";
+  $("startInterpreter").classList.remove("is-connected");
+  $("joinRoom").classList.remove("is-connected");
+  $("changeSharing").classList.add("hidden");
+  $("stopSharing").classList.add("hidden");
+  $("pinInput").disabled = false;
   $("pinDisplay").textContent = "—";
   $("copyPIN").disabled = true;
+  $("incomingAudio").srcObject = null;
   if (writeLog) log("Sessione terminata.");
   setStatus("Non connesso");
 }
@@ -182,7 +205,7 @@ async function startInterpreter() {
   setStatus("Seleziona la finestra da trasmettere", "waiting");
   try {
     localStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
-    localStream.getVideoTracks()[0]?.addEventListener("ended", () => disconnect());
+    localStream.getVideoTracks()[0]?.addEventListener("ended", () => { if(!switchingSharing) stopSharing(); });
     const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000);
     peer = makePeer("sadit-" + pin);
     peer.on("connection", incoming => {
@@ -205,6 +228,9 @@ async function startInterpreter() {
       incomingCall.on("close", () => log("Flusso audio/video terminato."));
     });
     peer.on("open", () => {
+      $("startInterpreter").disabled = false;
+      $("startInterpreter").textContent = "Disconnettiti";
+      $("startInterpreter").classList.add("is-connected");
       $("pinDisplay").textContent = pin;
       $("copyPIN").disabled = false;
       setStatus("PIN pronto · in attesa della sala", "waiting");
@@ -226,6 +252,9 @@ async function joinRoom() {
     localStream = await selectedAudio();
     peer = makePeer();
     peer.on("open", () => {
+      $("joinRoom").disabled = false;
+      $("joinRoom").textContent = "Disconnettiti";
+      $("joinRoom").classList.add("is-connected");
       const id = "sadit-" + pin;
       const connection = peer.connect(id, {reliable:true});
       attachData(connection);
