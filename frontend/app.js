@@ -68,11 +68,10 @@ function newRole(next) {
   $("roleScreen").classList.add("hidden");
   $("workspace").classList.remove("hidden");
   $("changeRole").classList.remove("hidden");
-  $("roleTitle").textContent = role === "interpreter" ? "Interprete · Respeaker" : "Sala · Proiezione";
-  $("controlTitle").textContent = role === "interpreter" ? "Trasmissione sottotitoli" : "Ricezione sottotitoli";
+  $("roleTitle").textContent = role === "interpreter" ? "Interprete · Trasmissione sottotitoli" : "Sala · Ricezione sottotitoli";
   $("interpreterControls").classList.toggle("hidden", role !== "interpreter");
   $("roomControls").classList.toggle("hidden", role !== "room");
-  $("deviceLabel").textContent = role === "interpreter" ? "Dispositivo di ascolto" : "Ingresso audio della sala";
+  $("deviceLabel").textContent = role === "interpreter" ? "Cuffie" : "Ingresso audio";
   $("deviceIcon").innerHTML = role === "interpreter"
     ? '<svg viewBox="0 0 24 24"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="13" width="4" height="8" rx="2"/><rect x="17" y="13" width="4" height="8" rx="2"/></svg>'
     : '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M7 21h10"/></svg>';
@@ -332,7 +331,7 @@ async function startInterpreter() {
       $("startInterpreter").classList.add("is-connected");
       $("pinDisplay").textContent = pin;
       $("copyPIN").disabled = false;
-      setStatus("PIN pronto · in attesa della sala", "waiting");
+      setStatus("PIN pronto · in attesa della sala (hai comunicato il PIN?)", "waiting");
       log("PIN creato. Comunicalo alla sala.");
     });
   } catch (e) {
