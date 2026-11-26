@@ -16,6 +16,8 @@ export function applyVoiceCommands(raw, commands) {
     const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     text = text.replace(new RegExp(escaped, "gi"), () => r);
   }
+  // Suppress spaces before a spoken line break, and leading whitespace after a keyword.
+  text = text.replace(/[ \\t]+\\n/g, "\\n").replace(/^[ \\t]+/, "");
   text = text.replace(/[.!?…]\s*\n*[a-zà-ÿ]/g, match => match.toUpperCase());
   text = text.replace(/#M\s*([a-zà-ÿ])/gi, (_, letter) => letter.toUpperCase());
   text = text.replace(/^(\s*)([a-zà-ÿ])/i, (_, spaces, letter) => spaces + letter.toUpperCase());
