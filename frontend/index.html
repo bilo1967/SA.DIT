@@ -10,7 +10,7 @@
 <div class="shell">
   <header class="titlebar">
     <div class="brand"><img class="brand-logo" src="./sadit.svg" alt="" aria-hidden="true"><strong>SA.DIT</strong><span id="roleTitle">Sottotitolazione attiva</span></div>
-    <div class="header-actions"><button id="changeRole" class="subtle hidden">Cambia ruolo</button><button id="openSettings" class="icon-button" title="Impostazioni" aria-label="Impostazioni">⚙ Setup</button></div>
+    <div class="header-actions"><button id="openVoiceCommands" class="subtle hidden" type="button">Comandi vocali</button><button id="changeRole" class="subtle hidden">Cambia ruolo</button><button id="openSettings" class="icon-button" title="Impostazioni" aria-label="Impostazioni">⚙ Setup</button></div>
   </header>
   <section id="roleScreen" class="role-screen">
     <h1>Come utilizzi SA.DIT?</h1>
@@ -24,10 +24,13 @@
     <section class="left-pane">
       <div class="primary-controls">
         <div id="interpreterControls" class="hidden">
-          <button id="startInterpreter" class="primary full" title="Le finestre ridotte a icona non compaiono nell’elenco. Ripristina la finestra da condividere prima di procedere.">Condividi finestra e ottieni PIN</button>
-          <div class="pin-display">PIN: <strong id="pinDisplay">—</strong><button id="copyPIN" class="small-button" disabled>Copia</button><button id="changeSharing" class="small-button hidden">Cambia condivisione</button><button id="stopSharing" class="subtle hidden">Interrompi</button></div>
-          <div class="speech-test">
-            <button id="speechTestToggle" class="secondary" type="button" title="Test Web Speech API con il microfono predefinito del PC; non invia il testo alla Sala.">Avvia riconoscimento (test)</button>
+          <div class="recognition-modes">
+            <button id="startInterpreter" class="primary" title="Le finestre ridotte a icona non compaiono nell’elenco. Ripristina la finestra da condividere prima di procedere.">Ric. vocale esterno (condividi finestra)</button>
+            <button id="startIntegrated" class="primary">Ric. vocale integrato (seleziona microfono)</button>
+          </div>
+          <div class="pin-display">PIN da comunicare alla sala: <strong id="pinDisplay">—</strong><button id="copyPIN" class="small-button" disabled>Copia</button><button id="changeSharing" class="small-button hidden">Cambia condivisione</button><button id="stopSharing" class="subtle hidden">Interrompi</button></div>
+          <div class="speech-test hidden" id="integratedSpeechControls">
+            <button id="speechTestToggle" class="secondary" type="button" title="Test Web Speech API con il microfono predefinito del PC; non invia il testo alla Sala.">Avvia riconoscimento</button>
             <span id="speechTestStatus" role="status">Verifica disponibilità…</span>
           </div>
           <div id="speechTestInterim" class="speech-interim" aria-live="off"></div>
@@ -55,6 +58,16 @@
   </main>
   <footer class="statusbar"><span id="statusText">Seleziona un ruolo per iniziare.</span><span id="statusRight">SA.DIT · WebRTC</span></footer>
 </div>
+<dialog id="voiceCommandsDialog" aria-label="Comandi vocali">
+  <form id="voiceCommandsForm">
+    <div class="dialog-header"><h2>Comandi vocali</h2><button type="button" id="cancelVoiceCommandsTop" class="subtle" aria-label="Chiudi comandi vocali">✕</button></div>
+    <p class="voice-help">Pronuncia un'espressione per sostituirla con testo, punteggiatura o ritorni a capo. Usa \\n per un ritorno a capo.</p>
+    <div class="voice-table-head"><span>Espressione pronunciata</span><span>Sostituzione</span><span></span></div>
+    <div id="voiceCommandsRows" class="voice-rows"></div>
+    <div class="voice-add"><button type="button" id="addVoiceCommand" class="secondary">+ Aggiungi comando</button></div>
+    <div class="dialog-footer"><p id="voiceCommandsError" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancelVoiceCommands" class="secondary">Annulla</button><button type="submit" class="primary">Salva e chiudi</button></div></div>
+  </form>
+</dialog>
 <dialog id="settingsDialog" aria-label="Impostazioni SA.DIT">
   <form id="settingsForm" method="dialog">
     <div class="dialog-header"><h2>Impostazioni</h2><button type="button" id="cancelSettings" class="subtle" aria-label="Chiudi impostazioni">✕</button></div>

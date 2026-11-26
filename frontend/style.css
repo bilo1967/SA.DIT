@@ -95,3 +95,24 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 #speechTestStatus{font-size:11px;color:#60788c;min-width:0;overflow-wrap:anywhere}
 .speech-interim{min-height:0;font-size:12px;color:#546c7f;font-style:italic;overflow-wrap:anywhere}
 .speech-interim:empty{display:none}
+
+/* Two independent recognition modes; active mode and voice controls. */
+.recognition-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.recognition-modes button{padding:8px 6px;font-size:12px;line-height:1.25;min-width:0}
+.recognition-modes .selected-mode{background:#0e4c76;border-color:#0e4c76}
+#startIntegrated.is-connected{background:#f8eeee;border-color:#dba7a7;color:#a53c3c}
+#openVoiceCommands{background:#e9f4ff;border:1px solid #b7d3e8;border-radius:5px;padding:6px 10px}
+.log-entry{line-height:1.2;padding-top:2px;padding-bottom:2px}
+.log-entry.transcript{color:#156b8c;font-weight:500;white-space:pre-wrap}
+.log-entry.interim{color:#7a4f99;font-style:italic;white-space:pre-wrap}
+#voiceCommandsDialog{width:min(700px,calc(100vw - 38px));max-width:700px;height:min(535px,calc(100vh - 54px));max-height:535px;padding:0;overflow:hidden;border:1px solid #cddce8;border-radius:9px}
+#voiceCommandsForm{display:flex;flex-direction:column;height:100%;min-height:0}
+#voiceCommandsDialog .dialog-header{flex:none;padding:12px 16px}
+.voice-help{flex:none;font-size:12px;margin:8px 16px}
+.voice-table-head{display:grid;grid-template-columns:1fr 1fr 68px;gap:8px;padding:4px 16px;font-size:12px;font-weight:600;color:#5b7287}
+.voice-rows{flex:1;min-height:0;overflow:auto;padding:5px 16px}
+.voice-row{display:grid;grid-template-columns:1fr 1fr 68px;gap:8px;margin:4px 0;align-items:center}
+.voice-row input{width:100%;min-height:30px;padding:4px 7px}
+.voice-row button{padding:4px}
+.voice-add{flex:none;padding:5px 16px}
+#voiceCommandsDialog .dialog-footer{flex:none;min-height:64px;padding:9px 16px;border-top:1px solid #d9e5ed}
