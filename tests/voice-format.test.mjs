@@ -2,7 +2,7 @@ import {readFileSync} from "node:fs";
 import {test} from "node:test";
 import assert from "node:assert/strict";
 const source=readFileSync(new URL("../frontend/voice-format.js",import.meta.url),"utf8");
-const {cleanEdgeSegment,applyVoiceCommands,appendReviewedSegment,reviewPunctuation}=
+const {cleanEdgeSegment,applyVoiceCommands,appendReviewedSegment,reviewPunctuation,isPunctuationOnly,stripEdgePunctuationAfterCommand}=
   await import("data:text/javascript;base64,"+Buffer.from(source).toString("base64"));
 
 test("Edge cleanup before commands",()=>{
@@ -38,4 +38,15 @@ test("sentence capitalization across segments and punctuation spacing",()=>{
   assert.equal(appendReviewedSegment("","ciao. mondo"),"Ciao. Mondo");
   assert.equal(appendReviewedSegment("","ciao! mondo"),"Ciao! Mondo");
   assert.equal(appendReviewedSegment("","ciao? mondo"),"Ciao? Mondo");
+});
+
+test("discard output containing only punctuation after substitutions",()=>{
+  for(const value of ["", ".", ". ?", "?!", " : , ! ", "…"]) assert.equal(isPunctuationOnly(value),true);
+  assert.equal(isPunctuationOnly("ciao."),false);
+  const commands=[{t:"punto fermo",r:". "},{t:"punto interrogativo",r:"? "}];
+  assert.equal(isPunctuationOnly(applyVoiceCommands("punto fermo",commands)),true);
+  assert.equal(isPunctuationOnly(applyVoiceCommands("punto interrogativo",commands)),true);
+  assert.equal(stripEdgePunctuationAfterCommand("ciao punto fermo?",commands),"ciao punto fermo");
+  assert.equal(stripEdgePunctuationAfterCommand("ciao punto fermo.",commands),"ciao punto fermo");
+  assert.equal(stripEdgePunctuationAfterCommand("ciao?",commands),"ciao?");
 });

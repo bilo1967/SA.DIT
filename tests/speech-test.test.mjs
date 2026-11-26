@@ -105,3 +105,43 @@ test("interim recognition stays local and never reaches the room", () => {
   assert.deepEqual(packets,[{type:"transcript",revision:1,final:"Test definitivo"}]);
   speech.stop();
 });
+
+test("immediate restart on network error and onend, without a timer",()=>{
+  const instances=[];
+  class MockRecognition {
+    constructor(){instances.push(this);}
+    start(){this.onstart?.();}
+    abort(){this.onend?.();}
+  }
+  globalThis.window={SpeechRecognition:MockRecognition};
+  const ui=createUI();
+  const speech=initSpeechTest(ui);
+  speech.start();
+  instances[0].onerror({error:"network"});
+  instances[0].onend();
+  assert.equal(instances.length,2);
+  assert.equal(speech.active,true);
+  speech.stop();
+  assert.equal(instances.length,2);
+});
+test("discard punctuation-only final results after commands and avoid double stops",()=>{
+  let session;
+  class MockRecognition {
+    constructor(){session=this;}
+    start(){this.onstart?.();}
+    abort(){this.onend?.();}
+  }
+  globalThis.window={SpeechRecognition:MockRecognition};
+  const packets=[];
+  const speech=initSpeechTest({...createUI(),
+    getCommands:()=>[{t:"punto fermo",r:". "}],
+    onTranscript:packet=>packets.push(packet),
+  });
+  speech.start();
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"punto fermo?"}],{isFinal:true})]});
+  assert.equal(packets.length,0);
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"ciao punto fermo?"}],{isFinal:true})]});
+  assert.equal(packets.length,1);
+  assert.equal(packets[0].final,"Ciao.");
+  speech.stop();
+});

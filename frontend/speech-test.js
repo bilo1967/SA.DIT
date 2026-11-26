@@ -1,13 +1,11 @@
 // Interpreter Web Speech recognizer: persistent state, DIT.tafono keywords and
 // bounded restart after unexpected onend (including recoverable network errors).
-import { cleanEdgeSegment, applyVoiceCommands, appendReviewedSegment } from "./voice-format.js";
+import { cleanEdgeSegment, applyVoiceCommands, appendReviewedSegment, isPunctuationOnly, stripEdgePunctuationAfterCommand } from "./voice-format.js";
 
 export function initSpeechTest({button, status = {textContent:""}, interim = {textContent:""}, log, getCommands = () => [], onTranscript = () => {}, onInterim = () => {}}) {
   const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let desired = false;
-  let pendingRestart = null;
-  let failures = 0;
   let fatal = false;
   let finalText = "";
   let partialText = "";
@@ -38,8 +36,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
   function stop() {
     desired = false;
     fatal = false;
-    if (pendingRestart !== null) clearTimeout(pendingRestart);
-    pendingRestart = null;
     const old = recognition;
     recognition = null;
     if (old) {
@@ -52,24 +48,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     onInterim("");
     showButtons();
     display("Riconoscimento interrotto");
-  }
-
-  function scheduleRestart() {
-    if (!desired || fatal || pendingRestart !== null) return;
-    if (failures >= 6) {
-      desired = false;
-      showButtons();
-      display("Impossibile riattivare il microfono");
-      log("Riconoscimento vocale: riattivazione fallita dopo più tentativi.", lastFailure, "error");
-      return;
-    }
-    const delay = Math.min(15000, 500 * Math.pow(2, Math.min(failures++, 5)));
-    display("Riconnessione tra " + (delay / 1000).toFixed(1) + " s");
-    log("Riconoscimento vocale: riavvio automatico.", "Attesa " + delay + " ms", "diagnostic");
-    pendingRestart = setTimeout(() => {
-      pendingRestart = null;
-      if (desired && !fatal) launch();
-    }, delay);
   }
 
   function launch() {
@@ -95,18 +73,17 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     };
     session.onresult = event => {
       if (recognition !== session) return;
-      failures = 0;
       let partial = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const raw = result[0]?.transcript;
         if (typeof raw !== "string") continue;
         if (result.isFinal) {
-          const cleaned = cleanEdgeSegment(raw);
-          if (!cleaned) continue;
           const commands = getCommands();
+          const cleaned = cleanEdgeSegment(stripEdgePunctuationAfterCommand(raw, commands));
+          if (!cleaned) continue;
           const processed = applyVoiceCommands(cleaned, commands);
-          if (!processed) continue;
+          if (isPunctuationOnly(processed)) continue;
           const previous = finalText;
           const forceUppercase = commands.some(({t,r}) =>
             r === "#M" && cleaned.toLocaleLowerCase("it-IT").startsWith(t.toLocaleLowerCase("it-IT")));
@@ -146,7 +123,8 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
       partialText = "";
       interim.textContent = "";
       onInterim("");
-      if (desired && !fatal) scheduleRestart();
+      // Same behavior as DIT.tafono: restart immediately when recognition ends.
+      if (desired && !fatal) launch();
       else if (!fatal) display("Riconoscimento terminato");
     };
     try {
@@ -155,8 +133,12 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     } catch (error) {
       recognition = null;
       lastFailure = "start";
-      log("Riconoscimento vocale: avvio non riuscito.", error.message, "diagnostic");
-      scheduleRestart();
+      // A synchronous start failure cannot be fixed by a tight retry loop.
+      desired = false;
+      fatal = true;
+      showButtons();
+      display("Impossibile riattivare il riconoscimento");
+      log("Riconoscimento vocale: riattivazione non riuscita.", error.message, "error");
     }
   }
 
@@ -164,7 +146,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     if (!Constructor || desired) return;
     desired = true;
     fatal = false;
-    failures = 0;
     showButtons();
     launch();
   }

@@ -109,3 +109,15 @@
   dopo aver attivato `Frameless` una volta, la trasparenza non si ripristina
   finché non si riavvia l'app con l'opzione barra nascosta disattivata.
   Ora due temi opachi (bianco su nero / nero su bianco) e font ±.
+
+### Correzione riconoscimento (26 novembre 2026)
+- Ricontrollato `voice.ditlab.it/index.html` del pacchetto originale DIT.tafono:
+  `recognition.onend` richiama immediatamente `recognition.start()` tramite il
+  toggle se il riavvio è abilitato. Nessun timer o backoff.
+- Eliminato il backoff inventato di 500 ms–15 s. `onend` riavvia subito;
+  un'eccezione sincrona di `start()` è invece segnalata senza loop serrati.
+- In aggiunta alla pulizia iniziale, dopo le sostituzioni sono scartati tutti
+  i risultati composti solo da segni di punteggiatura/simboli/spazi.
+- Quando Edge aggiunge `?`, `!` o `.` subito dopo un comando vocale esplicito
+  di punteggiatura a fine segmento, quel segno terminale automatico viene eliminato
+  prima della sostituzione, evitando la punteggiatura doppia.

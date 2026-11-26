@@ -8,6 +8,12 @@ export function normalizeVoiceCommands(input) {
   }));
 }
 
+// Reject any post-processed output made of punctuation and whitespace alone.
+export function isPunctuationOnly(text) {
+  const value = String(text ?? "").trim();
+  return !value || /^[\\p{P}\\p{S}\\s]+$/u.test(value);
+}
+
 export function applyVoiceCommands(raw, commands) {
   let text = String(raw ?? "");
   for (const {t, r} of commands) {
@@ -28,6 +34,21 @@ export function cleanEdgeSegment(raw) {
   if (!text || /^\p{P}$/u.test(text)) return "";
   if (text.endsWith(".") && !text.endsWith("..")) return text.slice(0,-1).trimEnd();
   return text;
+}
+
+// Edge may add sentence punctuation after a spoken punctuation command.
+// Remove that terminal automatic sign before applying the substitution.
+// Only consider configured commands that produce a punctuation sign.
+export function stripEdgePunctuationAfterCommand(text, commands) {
+  const value = String(text ?? "");
+  const punctuationCommands = commands.filter(({t,r}) =>
+    t.trim() && /^[.!?,;:]/.test(r.trim()));
+  for (const {t} of punctuationCommands) {
+    const quoted = t.replace(/[.*+?^${}()|[\]\\]/g, "\\// Keep exactly one space after punctuation when more text follows,");
+    const suffix = new RegExp("(?:^|\\s)" + quoted + "\\s*[.!?]\\s*$", "i");
+    if (suffix.test(value)) return value.replace(/[.!?]\\s*$/, "");
+  }
+  return value;
 }
 
 // Keep exactly one space after punctuation when more text follows,
