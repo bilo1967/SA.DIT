@@ -60,6 +60,15 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
 
   function scheduleRestart() {
     if (!desired || fatal || pendingRestart !== null) return;
+    if (failures >= 6) {
+      desired = false;
+      showButtons();
+      display("Impossibile riattivare il microfono");
+      log("Riconoscimento vocale: riattivazione fallita dopo più tentativi.", lastFailure, "error");
+      microphoneStream?.getTracks().forEach(track=>track.stop());
+      microphoneStream = null;
+      return;
+    }
     const delay = Math.min(15000, 500 * Math.pow(2, Math.min(failures++, 5)));
     display("Riconnessione tra " + (delay / 1000).toFixed(1) + " s");
     log("Riconoscimento vocale: riavvio automatico.", "Attesa " + delay + " ms", "diagnostic");
