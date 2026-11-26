@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - prototype/media-validation
+      - experiment/web-speech-recognition
     paths:
       - "*.go"
       - "go.mod"

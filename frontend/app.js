@@ -2,6 +2,7 @@
 import { Call, Events } from "/wails/runtime.js";
 import { initSettings } from "./settings.js";
 import { initProjectionWindow } from "./projection-window.js";
+import { initSpeechTest } from "./speech-test.js";
 
 const $ = id => document.getElementById(id);
 let role = null;
@@ -29,7 +30,7 @@ const projectionWindow = initProjectionWindow({
 });
 
 // Keep the full log in the DOM; display only user-facing events.
-const essentialLog = /modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
+const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
   const item = document.createElement("div");
   const visible = level === "error" || essentialLog.test(message);
@@ -70,6 +71,7 @@ function connectionActive(yes) {
   $("deviceSelect").disabled = false;
 }
 function newRole(next) {
+  speechTest.stop();
   disconnect(false);
   role = next;
   $("roleScreen").classList.add("hidden");
@@ -206,6 +208,7 @@ function closeNetwork() {
   try { oldPeer?.destroy(); } catch {}
 }
 function disconnect(writeLog = true) {
+  speechTest.stop();
   // Stop capture even when the other side disappears unexpectedly.
   closeNetwork();
   if (reserveVideoTimer) clearInterval(reserveVideoTimer);
@@ -600,6 +603,12 @@ Events.On("sadit:projection:error", event => {
   const msg = event.data || {};
   if (msg.session === projectionSession)
     failure("Errore nella finestra di proiezione.", new Error(msg.message || "Errore sconosciuto"));
+});
+const speechTest = initSpeechTest({
+  button: $("speechTestToggle"),
+  status: $("speechTestStatus"),
+  interim: $("speechTestInterim"),
+  log,
 });
 $("chooseInterpreter").onclick = () => newRole("interpreter");
 $("chooseRoom").onclick = () => newRole("room");

@@ -88,3 +88,10 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 
 /* The same compact SA.DIT mark is shown on the splash and both role screens. */
 .brand-logo{width:38px;height:38px;object-fit:contain;flex:none;display:block}
+
+/* Isolated interpreter microphone/Web Speech feasibility test. */
+.speech-test{display:flex;align-items:center;gap:10px;margin-top:7px}
+.speech-test button{flex:none;padding:6px 10px}
+#speechTestStatus{font-size:11px;color:#60788c;min-width:0;overflow-wrap:anywhere}
+.speech-interim{min-height:0;font-size:12px;color:#546c7f;font-style:italic;overflow-wrap:anywhere}
+.speech-interim:empty{display:none}

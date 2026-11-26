@@ -26,6 +26,11 @@
         <div id="interpreterControls" class="hidden">
           <button id="startInterpreter" class="primary full" title="Le finestre ridotte a icona non compaiono nell’elenco. Ripristina la finestra da condividere prima di procedere.">Condividi finestra e ottieni PIN</button>
           <div class="pin-display">PIN: <strong id="pinDisplay">—</strong><button id="copyPIN" class="small-button" disabled>Copia</button><button id="changeSharing" class="small-button hidden">Cambia condivisione</button><button id="stopSharing" class="subtle hidden">Interrompi</button></div>
+          <div class="speech-test">
+            <button id="speechTestToggle" class="secondary" type="button" title="Test Web Speech API con il microfono predefinito del PC; non invia il testo alla Sala.">Avvia riconoscimento (test)</button>
+            <span id="speechTestStatus" role="status">Verifica disponibilità…</span>
+          </div>
+          <div id="speechTestInterim" class="speech-interim" aria-live="off"></div>
         </div>
         <div id="roomControls" class="hidden">
           <div class="join-row"><label class="control-label" for="pinInput">PIN dell'interprete</label><input id="pinInput" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off"><button id="joinRoom" class="primary">Connettiti</button></div>
