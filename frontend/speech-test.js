@@ -15,7 +15,8 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
   let lastFailure = "";
 
   const display = text => { status.textContent = text; };
-  const emit = () => onTranscript({type: "transcript", revision: ++revision, final: finalText, interim: partialText});
+  // Only committed, post-processed text leaves the Interpreter.
+  const emit = () => onTranscript({type: "transcript", revision: ++revision, final: finalText});
   const showButtons = () => {
     button.disabled = !Constructor;
     button.textContent = desired ? "Interrompi riconoscimento" : "Avvia riconoscimento";
@@ -102,8 +103,11 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
         if (typeof raw !== "string") continue;
         if (result.isFinal) {
           const processed = applyVoiceCommands(raw, getCommands());
-          finalText += processed;
-          if (processed.trim()) log("Trascrizione: " + processed, "", "transcript");
+          if (processed) {
+            finalText += processed;
+            if (processed.trim()) log("Trascrizione: " + processed, "", "transcript");
+            emit();
+          }
         } else {
           partial += (partial ? " " : "") + raw.trim();
         }
@@ -111,7 +115,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
       partialText = partial;
       interim.textContent = partial;
       onInterim(partial);
-      emit();
     };
     session.onerror = event => {
       if (recognition !== session) return;
@@ -136,7 +139,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
       partialText = "";
       interim.textContent = "";
       onInterim("");
-      emit();
       if (desired && !fatal) scheduleRestart();
       else if (!fatal) display("Riconoscimento terminato");
     };
@@ -160,5 +162,5 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     launch();
   }
   button.onclick = () => desired ? stop() : start();
-  return {stop, clear, start, supported: !!Constructor, get active() { return desired; }, snapshot: () => ({final:finalText,interim:partialText,revision})};
+  return {stop, clear, start, supported: !!Constructor, get active() { return desired; }, snapshot: () => ({final:finalText,revision})};
 }

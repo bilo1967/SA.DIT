@@ -17,7 +17,7 @@ let roomMode = null; // room: mode announced by the interpreter
 let roomMediaStarted = false;
 let roomPeerId = null;
 let roomTranscriptRevision = -1;
-let roomTranscript = {final:"",interim:"",revision:0};
+let roomTranscript = {final:"",revision:0};
 let interimLogEntry = null;
 let voiceCommands = {get: () => []};
 let switchingSharing = false;
@@ -41,23 +41,6 @@ const projectionWindow = initProjectionWindow({
 // Keep the full log in the DOM; display only user-facing events.
 const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
-  // Edge can return punctuation in a separate final segment; append it to
-  // the previous visible transcription instead of making a dot-only log row.
-  if (level === "transcript") {
-    const content = message.replace(/^Trascrizione:\s*/, "");
-    if (!content.trim()) return;
-    const leadingPunctuation = content.trimStart().match(/^([.,;:!?…]+)(?=\\s|$)/);
-    if (leadingPunctuation) {
-      const entries = $("log").querySelectorAll(".log-entry.transcript");
-      const previous = entries[entries.length - 1]?.querySelector(".message");
-      if (previous) {
-        previous.textContent += leadingPunctuation[1];
-        const remainder = content.trimStart().slice(leadingPunctuation[1].length).trimStart();
-        if (!remainder) return;
-        message = "Trascrizione: " + remainder;
-      }
-    }
-  }
   const item = document.createElement("div");
   const visible = level === "error" || level === "transcript" || level === "interim" ||
     (level !== "diagnostic" && essentialLog.test(message));
@@ -212,10 +195,9 @@ function attachData(connection) {
     }
     if (role === "room" && roomMode === "integrated" && payload.type === "transcript" &&
         Number.isSafeInteger(payload.revision) && payload.revision > roomTranscriptRevision &&
-        typeof payload.final === "string" && typeof payload.interim === "string" &&
-        payload.final.length <= 200000 && payload.interim.length <= 10000) {
+        typeof payload.final === "string" && payload.final.length <= 200000) {
       roomTranscriptRevision = payload.revision;
-      roomTranscript = {final:payload.final,interim:payload.interim,revision:payload.revision};
+      roomTranscript = {final:payload.final,revision:payload.revision};
       projectionEmit("transcript", roomTranscript);
     }
   });
@@ -289,7 +271,7 @@ function disconnect(writeLog = true) {
   roomMediaStarted = false;
   roomPeerId = null;
   roomTranscriptRevision = -1;
-  roomTranscript = {final:"",interim:"",revision:0};
+  roomTranscript = {final:"",revision:0};
   logInterim("");
   $("integratedSpeechControls").classList.add("hidden");
   $("openVoiceCommands").classList.add("hidden");

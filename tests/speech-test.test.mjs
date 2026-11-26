@@ -77,7 +77,31 @@ test("sends idempotent cumulative snapshots and preserves newlines", () => {
     Object.assign([{transcript:"ciao a capo mondo"}],{isFinal:true}),
   ]});
   assert.equal(payloads.at(-1).final,"Ciao\n mondo");
-  assert.equal(payloads.at(-1).interim,"");
+  assert.equal("interim" in payloads.at(-1),false);
   assert.equal(payloads.at(-1).revision,1);
+  speech.stop();
+});
+
+test("interim recognition stays local and never reaches the room", () => {
+  let session;
+  class MockRecognition {
+    constructor(){session=this;}
+    start(){this.onstart?.();}
+    abort(){this.onend?.();}
+  }
+  globalThis.window={SpeechRecognition:MockRecognition};
+  const ui=createUI();
+  const packets=[];
+  const local=[];
+  const speech=initSpeechTest({...ui,
+    onTranscript:p=>packets.push(p),
+    onInterim:t=>local.push(t),
+  });
+  speech.start();
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"ancora da verificare"}],{isFinal:false})]});
+  assert.equal(local.at(-1),"ancora da verificare");
+  assert.equal(packets.length,0);
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"Test definitivo."}],{isFinal:true})]});
+  assert.deepEqual(packets,[{type:"transcript",revision:1,final:"Test definitivo."}]);
   speech.stop();
 });

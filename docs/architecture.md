@@ -76,3 +76,18 @@
 - WebView2 non ha garantito l'uso della traccia selezionata da `SpeechRecognition.start(audioTrack)` nel test pratico: la modalità integrata usa temporaneamente il microfono predefinito, senza opzione di selezione.
 - Non inserire punti né altri caratteri di punteggiatura automaticamente: conservare quelli riconosciuti da Edge e le sole sostituzioni dei comandi vocali espliciti.
 - Gli eventi di acquisizione del microfono e avvio ASR restano nel log diagnostico invisibile.
+
+## Solo testo definitivo verso la Sala
+- L'Interprete visualizza i risultati `interim` esclusivamente nel proprio log.
+- Gli eventi `transcript` contengono soltanto `{revision,final}` e sono emessi
+  dopo `isFinal` e post-processing, oppure quando si azzera la trascrizione.
+- La Sala non riceve né mostra `interim`, anche se una versione precedente del
+  protocollo eventualmente lo contenesse.
+- Nessuna punteggiatura va generata automaticamente a fine segmento.
+  Edge può produrla autonomamente; i comandi vocali espliciti possono
+  sostituire una frase come «punto fermo» con «. ».
+- Rimossa la logica che spostava punteggiatura tra righe del log: serviva
+  solo all'aspetto, ma poteva rendere poco leggibili i risultati reali.
+- La trasparenza con `SetBackgroundColour` dopo `SetFrameless` non ha risolto
+  il problema su Windows; resta una limitazione aperta da verificare con una
+  differente gestione nativa della finestra.

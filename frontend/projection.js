@@ -77,7 +77,8 @@ Events.On("sadit:projection:transcript", event => {
       payload.revision <= lastTextRevision) return;
   lastTextRevision = payload.revision;
   finalTranscript.textContent = String(payload.final || "");
-  interimTranscript.textContent = String(payload.interim || "");
+  // Provisional recognition is deliberately never projected.
+  interimTranscript.textContent = "";
   textProjection.scrollTop = textProjection.scrollHeight;
 });
 
