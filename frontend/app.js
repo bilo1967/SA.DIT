@@ -101,6 +101,8 @@ function newRole(next) {
   disconnect(false);
   role = next;
   $("openVoiceCommands").classList.add("hidden");
+  $("textTransparencyOption").classList.add("hidden");
+  $("textTransparency").checked = false;
   $("roleScreen").classList.add("hidden");
   $("workspace").classList.remove("hidden");
   $("changeRole").classList.remove("hidden");
@@ -181,6 +183,7 @@ function attachData(connection) {
       log(roomMode === "integrated" ? "Modalità riconoscimento integrato: ricezione testo." : "Modalità riconoscimento esterno: ricezione video.");
       if (roomMode === "external") startRoomMedia().catch(e => { disconnect(false); failure("Impossibile avviare il collegamento multimediale.",e); });
       else {
+        $("textTransparencyOption").classList.remove("hidden");
         projectionEmit("text-mode", {mode:"integrated"});
         startProjection().then(() => projectionEmit("text-mode", {mode:"integrated"}))
           .catch(e => failure("Non riesco ad aprire la proiezione testuale.",e));
@@ -269,6 +272,8 @@ function disconnect(writeLog = true) {
   logInterim("");
   $("integratedSpeechControls").classList.add("hidden");
   $("openVoiceCommands").classList.add("hidden");
+  $("textTransparencyOption").classList.add("hidden");
+  $("textTransparency").checked = false;
   // Stop capture even when the other side disappears unexpectedly.
   closeNetwork();
   if (reserveVideoTimer) clearInterval(reserveVideoTimer);
@@ -479,7 +484,7 @@ function reserveIncomingVideoChannel(stream) {
 async function joinRoom() {
   if (busy) return;
   const pin = $("pinInput").value.trim();
-  if (!/^\\d{6}$/.test(pin)) { failure("Inserisci il PIN di sei cifre dell'interprete."); return; }
+  if (!/^\d{6}$/.test(pin)) { failure("Inserisci il PIN di sei cifre dell'interprete."); return; }
   busy = true;
   $("joinRoom").disabled = true;
   setStatus("Collegamento con l'interprete", "waiting");
@@ -680,7 +685,7 @@ function sendProjectionOffer() {
 
 Events.On("sadit:projection:ready", () => {
   if (role === "room" && roomMode === "integrated") {
-    projectionEmit("text-mode",{mode:"integrated"});
+    projectionEmit("text-mode",{mode:"integrated",transparent:$("textTransparency").checked});
     projectionEmit("transcript",roomTranscript);
     return;
   }
@@ -795,6 +800,10 @@ function confirmDisconnect() {
 }
 $("startInterpreter").onclick = () => busy && peer ? confirmDisconnect() : startInterpreter();
 $("startIntegrated").onclick = () => busy && peer ? confirmDisconnect() : startIntegrated();
+$("textTransparency").onchange = () => {
+  if (role === "room" && roomMode === "integrated")
+    projectionEmit("text-mode",{mode:"integrated",transparent:$("textTransparency").checked});
+};
 $("joinRoom").onclick = () => busy && peer ? confirmDisconnect() : joinRoom();
 $("changeSharing").onclick = changeSharing;
 $("stopSharing").onclick = stopSharing;

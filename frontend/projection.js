@@ -4,6 +4,11 @@ import { initProjectionCrop } from "./projection-crop.js";
 
 const video = document.getElementById("projection");
 const placeholder = document.getElementById("placeholder");
+const textProjection = document.getElementById("textProjection");
+const finalTranscript = document.getElementById("finalTranscript");
+const interimTranscript = document.getElementById("interimTranscript");
+let displayMode = "external";
+let lastTextRevision = -1;
 const projectionCrop = initProjectionCrop(video);
 // A frameless projection exposes a hover-only native drag handle.
 Call.ByName("main.ProjectionService.IsTitlebarHidden")
@@ -34,8 +39,39 @@ function stop() {
   video.srcObject = null;
   video.style.display = "none";
   projectionCrop.reset();
+  displayMode = "external";
+  lastTextRevision = -1;
+  textProjection.style.display = "none";
+  finalTranscript.textContent = "";
+  interimTranscript.textContent = "";
+  document.documentElement.classList.remove("text-transparent");
   message("In attesa dei sottotitoli dell'interprete…");
 }
+
+// In text mode no WebRTC stream is created; snapshots arrive through Wails events.
+Events.On("sadit:projection:text-mode", event => {
+  const payload = event.data || {};
+  if (payload.mode !== "integrated") return;
+  if (displayMode !== "integrated") {
+    displayMode = "integrated";
+    lastTextRevision = -1;
+    finalTranscript.textContent = "";
+    interimTranscript.textContent = "";
+  }
+  video.style.display = "none";
+  placeholder.style.display = "none";
+  textProjection.style.display = "block";
+  document.documentElement.classList.toggle("text-transparent", !!payload.transparent);
+});
+Events.On("sadit:projection:transcript", event => {
+  const payload = event.data || {};
+  if (displayMode !== "integrated" || !Number.isSafeInteger(payload.revision) ||
+      payload.revision <= lastTextRevision) return;
+  lastTextRevision = payload.revision;
+  finalTranscript.textContent = String(payload.final || "");
+  interimTranscript.textContent = String(payload.interim || "");
+  textProjection.scrollTop = textProjection.scrollHeight;
+});
 
 Events.On("sadit:projection:probe", () => {
   debug("Richiesta PROBE ricevuta: finestra pronta.");

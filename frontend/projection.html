@@ -9,6 +9,11 @@ html,body{margin:0;height:100%;background:#111820;color:#dce7ef;font:13px "Segoe
 [hidden]{display:none!important}
 #stage{position:relative;width:100%;height:100%;overflow:hidden}
 #projection{position:absolute;display:none;object-fit:fill;max-width:none}
+#textProjection{position:absolute;inset:0;overflow:auto;display:none;box-sizing:border-box;padding:16px 28px;color:#f8fafc;background:transparent;font:600 clamp(20px,4vw,46px)/1.32 "Segoe UI",Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere}
+#textProjection .provisional{color:#d9d0f0;opacity:.82}
+html.text-transparent,html.text-transparent body{background:transparent!important}
+html.text-transparent #textProjection{text-shadow:0 2px 4px #000,1px 1px 3px #000,-1px -1px 3px #000}
+html.text-transparent #stage{background:transparent}
 #placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;box-sizing:border-box;color:#8e9da9}
 #cropToolbar{position:absolute;top:6px;left:6px;z-index:3;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .12s}
 #stage:hover #cropToolbar,#cropToolbar:focus-within,#stage.cropping #cropToolbar{opacity:1;pointer-events:auto}
@@ -27,6 +32,7 @@ html.frameless #stage.cropping #projectionDrag{display:none!important}
 <body>
 <div id="stage">
   <video id="projection" autoplay playsinline muted></video>
+  <div id="textProjection" role="log" aria-live="off"><span id="finalTranscript"></span><span id="interimTranscript" class="provisional"></span></div>
   <div id="placeholder">In attesa dei sottotitoli dell'interprete…</div>
   <div id="cropOverlay" hidden><div id="cropSelection" hidden></div></div>
   <div id="cropToolbar" role="toolbar" aria-label="Controlli della proiezione">

@@ -43,6 +43,8 @@ func (s *ProjectionService) openLocked() {
 		MinWidth: 160,
 		MinHeight: 60,
 		AlwaysOnTop: false,
+		// Transparent native surface; external/video mode remains opaque via CSS.
+		BackgroundType: application.BackgroundTypeTransparent,
 		Frameless: s.hideTitlebar,
 	})
 	// The system close button also hides; actual app shutdown must still close it.
