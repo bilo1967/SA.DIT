@@ -48,7 +48,7 @@ func configDirs() (string, string, error) {
 // resolveConfigPath chooses an existing config from AppData or beside the EXE.
 // If neither exists, save a newly created configuration into AppData.
 func resolveConfigPath(file, appDataDir, executableDir string) (string, error) {
-	if file != "signaling.json" && file != "preferences.json" {
+	if file != "signaling.json" && file != "preferences.json" && file != "voice-commands.json" {
 		return "", fmt.Errorf("unsupported config filename: %s", file)
 	}
 	for _, dir := range []string{appDataDir, executableDir} {

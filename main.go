@@ -26,6 +26,7 @@ func main() {
 		Name: "SA.DIT",
 		Services: []application.Service{
 			application.NewService(&ConfigService{}),
+            application.NewService(&VoiceCommandsService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(content),
