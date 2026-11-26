@@ -43,7 +43,7 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 #settingsDialog button{padding:5px 10px}
 .settings-device-row{display:flex;align-items:center;gap:8px}
 .settings-device-row label,.settings-device-row button{flex:none}
-#settingsDevice,#settingsMicrophone{flex:1;min-width:0;width:auto;margin:0}
+#settingsDevice{flex:1;min-width:0;width:auto;margin:0}
 #settingsDialog .settings-audio{padding-top:5px;padding-bottom:5px}
 #settingsDialog .settings-audio .settings-device-row{min-height:30px;margin:2px 0}
 .settings-device-row label{display:flex;align-items:center;gap:7px;min-width:126px}
@@ -125,3 +125,8 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 /* Compact recognition mode; transcript is shown only in the event log. */
 .speech-test{margin-top:6px}
 .log-entry{line-height:1.12;padding-top:1px;padding-bottom:1px}
+
+/* Fieldset action shares the top border with its legend, as in the ICE section. */
+#settingsDialog .audio-legend{display:flex;align-items:center;gap:10px;width:100%;padding:0}
+#settingsDialog .audio-legend>span:first-child{flex:none}
+#settingsDialog #settingsRefreshDevices{flex:none;min-height:26px;padding:3px 8px;font-size:12px;font-weight:400}

@@ -70,15 +70,10 @@
 <dialog id="settingsDialog" aria-label="Impostazioni SA.DIT">
   <form id="settingsForm" method="dialog">
     <div class="dialog-header"><h2>Impostazioni</h2><button type="button" id="cancelSettings" class="subtle" aria-label="Chiudi impostazioni">✕</button></div>
-    <fieldset class="settings-audio"><legend id="settingsAudioLegend">Dispositivo audio</legend>
+    <fieldset class="settings-audio"><legend class="audio-legend"><span id="settingsAudioLegend">Dispositivo audio</span><span class="legend-rule" aria-hidden="true"></span><button type="button" id="settingsRefreshDevices" class="secondary">Aggiorna elenco</button></legend>
       <div class="settings-device-row">
         <label for="settingsDevice" id="settingsDeviceLabel">Dispositivo preferito</label>
         <select id="settingsDevice"><option value="">Predefinito</option></select>
-        <button type="button" id="settingsRefreshDevices" class="secondary">Aggiorna elenco</button>
-      </div>
-      <div class="settings-device-row hidden" id="settingsMicrophoneRow">
-        <label for="settingsMicrophone"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M7 21h10"/></svg>Microfono</label>
-        <select id="settingsMicrophone"><option value="">Predefinito</option></select>
       </div>
     </fieldset>
     <fieldset class="settings-signaling"><legend>Signaling PeerJS</legend>

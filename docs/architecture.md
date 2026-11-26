@@ -71,3 +71,8 @@
   tentativo di aggirare il comportamento WebView2, da confermare su Windows.
 - Non ricreare automaticamente la proiezione durante una sessione: farebbe
   perdere la connessione video della modalità esterna.
+
+### Nota sulla selezione del microfono e punteggiatura
+- WebView2 non ha garantito l'uso della traccia selezionata da `SpeechRecognition.start(audioTrack)` nel test pratico: la modalità integrata usa temporaneamente il microfono predefinito, senza opzione di selezione.
+- Non inserire punti né altri caratteri di punteggiatura automaticamente: conservare quelli riconosciuti da Edge e le sole sostituzioni dei comandi vocali espliciti.
+- Gli eventi di acquisizione del microfono e avvio ASR restano nel log diagnostico invisibile.

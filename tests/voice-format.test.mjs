@@ -11,7 +11,7 @@ test("preserves the DIT.tafono commands and newline replacements",()=>{
  {t:"lettera maiuscola",r:"#M"}
  ]);
  assert.equal(applyVoiceCommands("ciao a capo mondo",rules),"Ciao\n mondo");
- assert.equal(applyVoiceCommands("ciao virgola come stai",rules),"Ciao, come stai");
+ assert.equal(applyVoiceCommands("ciao virgola come stai",rules),"Ciao,  come stai");
  assert.equal(applyVoiceCommands("lettera maiuscola prova",rules),"Prova");
  assert.equal(applyVoiceCommands("ciao altro paragrafo mondo",rules),"Ciao\n\n mondo");
 });
@@ -19,9 +19,9 @@ test("treats keyword expressions literally rather than as regex",()=>{
  assert.equal(applyVoiceCommands("a+b",[{t:"a+b",r:"x"}]),"X");
 });
 
-test("single space after dictated punctuation, except when followed by a newline",()=>{
-  const rules=[{t:"virgola",r:", "},{t:"punto fermo",r:". "},{t:"a capo",r:"\n"}];
-  assert.equal(applyVoiceCommands("ciao virgola mondo",rules),"Ciao, mondo");
-  assert.equal(applyVoiceCommands("ciao punto fermo mondo",rules),"Ciao. Mondo");
-  assert.equal(applyVoiceCommands("ciao virgola a capo mondo",rules),"Ciao,\n mondo");
+test("keeps the punctuation returned by the recognizer unchanged", () => {
+  assert.equal(applyVoiceCommands("ciao.", []), "Ciao.");
+  assert.equal(applyVoiceCommands("ciao... mondo!", []), "Ciao... mondo!");
+  assert.equal(applyVoiceCommands(".", []), ".");
+  assert.equal(applyVoiceCommands("ciao,\\nmondo", []), "Ciao,\\nmondo");
 });

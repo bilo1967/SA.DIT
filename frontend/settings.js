@@ -68,26 +68,11 @@ async function updateDeviceOptions() {
   const interpreter = app.getRole() === "interpreter";
   $("settingsAudioLegend").textContent = interpreter ? "Dispositivi audio" : "Dispositivo audio";
   $("settingsDeviceLabel").innerHTML = interpreter ? headphonesIcon() + "Cuffie" : "Dispositivo preferito";
-  $("settingsMicrophoneRow").classList.toggle("hidden", !interpreter);
   const select = $("settingsDevice");
   const current = interpreter ? preferences.outputDeviceId : preferences.inputDeviceId;
   select.replaceChildren(...[...$("deviceSelect").options].map(o => new Option(o.textContent, o.value)));
   select.value = [...select.options].some(o=>o.value===current) ? current : "";
-  if (interpreter) {
-    const mic = $("settingsMicrophone");
-    const saved = preferences.interpreterMicrophoneId || "";
-    mic.replaceChildren(new Option("Predefinito", ""));
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      for (const device of devices.filter(d => d.kind === "audioinput" && d.deviceId && d.deviceId !== "default"))
-        mic.add(new Option(device.label || "Microfono " + mic.length, device.deviceId));
-    } catch (error) {
-      app.log("Impossibile elencare i microfoni.", error.message);
-    }
-    if (saved && ![...mic.options].some(o=>o.value===saved))
-      mic.add(new Option("Microfono precedentemente selezionato", saved));
-    mic.value = saved;
-  }
+
 }
 
 async function saveDialog(event) {
@@ -104,10 +89,7 @@ async function saveDialog(event) {
     signaling = next;
     app.setSignaling(signaling);
     const chosenDevice = $("settingsDevice").value;
-    await savePrefs(app.getRole() === "room" ? {inputDeviceId:chosenDevice} : {
-      outputDeviceId:chosenDevice,
-      interpreterMicrophoneId:$("settingsMicrophone").value,
-    });
+    await savePrefs(app.getRole() === "room" ? {inputDeviceId:chosenDevice} : {outputDeviceId:chosenDevice});
     app.chooseDevice(chosenDevice);
     $("settingsDialog").close();
     app.log("Impostazioni salvate. Le impostazioni di rete valgono dalla prossima connessione.");

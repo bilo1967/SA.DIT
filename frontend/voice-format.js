@@ -16,16 +16,8 @@ export function applyVoiceCommands(raw, commands) {
     const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     text = text.replace(new RegExp(escaped, "gi"), () => r);
   }
-  // Suppress spaces before a spoken line break, and leading whitespace after a keyword.
-  text = text.replace(/[ \t]+\n/g, "\n").replace(/^[ \t]+/, "");
-  text = text.replace(/[.!?…]\s*\n*[a-zà-ÿ]/g, match => match.toUpperCase());
-  text = text.replace(/#M\s*([a-zà-ÿ])/gi, (_, letter) => letter.toUpperCase());
-  text = text.replace(/^(\s*)([a-zà-ÿ])/i, (_, spaces, letter) => spaces + letter.toUpperCase());
-  text = text.replace(/[ \t]+([.,;:!?])/g, "$1");
-  // Keep exactly one space after each punctuation mark unless a newline follows.
-  text = text.replace(/([.,;:!?])[ \t]*/g, (match, punctuation, offset, original) => {
-    const next = original[offset + match.length];
-    return punctuation + (next === "\n" || next === "\r" ? "" : " ");
-  });
+  // Leave Edge/Chrome punctuation untouched; only act on explicit voice commands.
+  text = text.replace(/#M\\s*([a-zà-ÿ])/gi, (_, letter) => letter.toUpperCase());
+  text = text.replace(/^(\\s*)([a-zà-ÿ])/i, (_, spaces, letter) => spaces + letter.toUpperCase());
   return text;
 }

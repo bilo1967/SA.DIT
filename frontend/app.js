@@ -757,7 +757,6 @@ Events.On("sadit:projection:error", event => {
 });
 const speechTest = initSpeechTest({
   button: $("speechTestToggle"),
-  getMicrophoneId: () => preferences.interpreterMicrophoneId || "",
   log,
   getCommands: () => voiceCommands.get(),
   onTranscript: payload => {

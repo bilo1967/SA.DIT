@@ -2,7 +2,7 @@
 // bounded restart after unexpected onend (including recoverable network errors).
 import { applyVoiceCommands } from "./voice-format.js";
 
-export function initSpeechTest({button, status = {textContent:""}, interim = {textContent:""}, log, getCommands = () => [], getMicrophoneId = () => "", onTranscript = () => {}, onInterim = () => {}}) {
+export function initSpeechTest({button, status = {textContent:""}, interim = {textContent:""}, log, getCommands = () => [], onTranscript = () => {}, onInterim = () => {}}) {
   const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let desired = false;
@@ -12,8 +12,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
   let finalText = "";
   let partialText = "";
   let revision = 0;
-  let microphoneStream = null;
-  let starting = false;
   let lastFailure = "";
 
   const display = text => { status.textContent = text; };
@@ -41,9 +39,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     fatal = false;
     if (pendingRestart !== null) clearTimeout(pendingRestart);
     pendingRestart = null;
-    starting = false;
-    microphoneStream?.getTracks().forEach(track=>track.stop());
-    microphoneStream = null;
     const old = recognition;
     recognition = null;
     if (old) {
@@ -65,8 +60,6 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
       showButtons();
       display("Impossibile riattivare il microfono");
       log("Riconoscimento vocale: riattivazione fallita dopo più tentativi.", lastFailure, "error");
-      microphoneStream?.getTracks().forEach(track=>track.stop());
-      microphoneStream = null;
       return;
     }
     const delay = Math.min(15000, 500 * Math.pow(2, Math.min(failures++, 5)));
@@ -94,10 +87,10 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
       if (lastFailure) {
         log("Riconoscimento vocale ripristinato.", "", "diagnostic");
         lastFailure = "";
-      } else log("Riconoscimento vocale avviato.");
+      } else log("Riconoscimento vocale avviato.", "", "diagnostic");
     };
     session.onaudiostart = () => {
-      if (recognition === session) log("Riconoscimento vocale: microfono acquisito.");
+      if (recognition === session) log("Riconoscimento vocale: microfono acquisito.", "", "diagnostic");
     };
     session.onresult = event => {
       if (recognition !== session) return;
@@ -148,10 +141,8 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
       else if (!fatal) display("Riconoscimento terminato");
     };
     try {
-      const track = microphoneStream?.getAudioTracks()[0];
-      if (track && track.readyState !== "live") throw new Error("Il microfono selezionato non è disponibile.");
-      if (track) session.start(track);
-      else session.start();
+      // WebView2 microphone selection via start(audioTrack) was not reliable in testing.
+      session.start();
     } catch (error) {
       recognition = null;
       lastFailure = "start";
@@ -160,31 +151,13 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
     }
   }
 
-  async function start() {
-    if (!Constructor || desired || starting) return;
+  function start() {
+    if (!Constructor || desired) return;
     desired = true;
-    starting = true;
     fatal = false;
     failures = 0;
     showButtons();
-    try {
-      const microphoneId = getMicrophoneId();
-      if (microphoneId) {
-        microphoneStream = await navigator.mediaDevices.getUserMedia({
-          audio:{deviceId:{exact:microphoneId}},video:false,
-        });
-      }
-      if (desired) launch();
-      else {
-        microphoneStream?.getTracks().forEach(track=>track.stop());
-        microphoneStream = null;
-      }
-    } catch (error) {
-      desired = false;
-      display("Impossibile selezionare il microfono");
-      log("Riconoscimento vocale: impossibile aprire il microfono selezionato.",error.message,"error");
-      showButtons();
-    } finally { starting = false; }
+    launch();
   }
   button.onclick = () => desired ? stop() : start();
   return {stop, clear, start, supported: !!Constructor, get active() { return desired; }, snapshot: () => ({final:finalText,interim:partialText,revision})};
