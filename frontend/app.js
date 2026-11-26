@@ -42,7 +42,8 @@ const projectionWindow = initProjectionWindow({
 const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
   const item = document.createElement("div");
-  const visible = level === "error" || level === "transcript" || level === "interim" || essentialLog.test(message);
+  const visible = level === "error" || level === "transcript" || level === "interim" ||
+    (level !== "diagnostic" && essentialLog.test(message));
   item.className = "log-entry " + level + (visible ? "" : " diagnostic");
   const time = document.createElement("span");
   time.className = "time";
@@ -300,7 +301,7 @@ function disconnect(writeLog = true) {
   $("startIntegrated").disabled = false;
   $("joinRoom").disabled = false;
   $("startInterpreter").textContent = "Ric. vocale esterno (condividi finestra)";
-  $("startIntegrated").textContent = "Ric. vocale integrato (seleziona microfono)";
+  $("startIntegrated").textContent = "Riconoscimento voc. integrato";
   $("joinRoom").textContent = "Connettiti";
   $("startInterpreter").classList.remove("is-connected");
   $("startIntegrated").classList.remove("is-connected");
@@ -756,8 +757,7 @@ Events.On("sadit:projection:error", event => {
 });
 const speechTest = initSpeechTest({
   button: $("speechTestToggle"),
-  status: $("speechTestStatus"),
-  interim: $("speechTestInterim"),
+  getMicrophoneId: () => preferences.interpreterMicrophoneId || "",
   log,
   getCommands: () => voiceCommands.get(),
   onTranscript: payload => {

@@ -30,6 +30,7 @@ type Preferences struct {
 	Role          string `json:"role"`
 	InputDeviceID string `json:"inputDeviceId"`
 	OutputDeviceID string `json:"outputDeviceId"`
+	InterpreterMicrophoneID string `json:"interpreterMicrophoneId"`
 	HideProjectionTitlebar bool `json:"hideProjectionTitlebar"`
 }
 

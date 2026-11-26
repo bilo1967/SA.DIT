@@ -2,7 +2,7 @@
 // bounded restart after unexpected onend (including recoverable network errors).
 import { applyVoiceCommands } from "./voice-format.js";
 
-export function initSpeechTest({button, status, interim, log, getCommands = () => [], onTranscript = () => {}, onInterim = () => {}}) {
+export function initSpeechTest({button, status = {textContent:""}, interim = {textContent:""}, log, getCommands = () => [], getMicrophoneId = () => "", onTranscript = () => {}, onInterim = () => {}}) {
   const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let desired = false;
@@ -12,6 +12,9 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
   let finalText = "";
   let partialText = "";
   let revision = 0;
+  let microphoneStream = null;
+  let starting = false;
+  let lastFailure = "";
 
   const display = text => { status.textContent = text; };
   const emit = () => onTranscript({type: "transcript", revision: ++revision, final: finalText, interim: partialText});
@@ -38,6 +41,9 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
     fatal = false;
     if (pendingRestart !== null) clearTimeout(pendingRestart);
     pendingRestart = null;
+    starting = false;
+    microphoneStream?.getTracks().forEach(track=>track.stop());
+    microphoneStream = null;
     const old = recognition;
     recognition = null;
     if (old) {
@@ -56,7 +62,7 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
     if (!desired || fatal || pendingRestart !== null) return;
     const delay = Math.min(15000, 500 * Math.pow(2, Math.min(failures++, 5)));
     display("Riconnessione tra " + (delay / 1000).toFixed(1) + " s");
-    log("Riconoscimento vocale: riavvio automatico.", "Attesa " + delay + " ms");
+    log("Riconoscimento vocale: riavvio automatico.", "Attesa " + delay + " ms", "diagnostic");
     pendingRestart = setTimeout(() => {
       pendingRestart = null;
       if (desired && !fatal) launch();
@@ -76,7 +82,10 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
     session.onstart = () => {
       if (recognition !== session) return;
       display("Microfono attivo · ascolto in corso");
-      log("Riconoscimento vocale avviato.");
+      if (lastFailure) {
+        log("Riconoscimento vocale ripristinato.", "", "diagnostic");
+        lastFailure = "";
+      } else log("Riconoscimento vocale avviato.");
     };
     session.onaudiostart = () => {
       if (recognition === session) log("Riconoscimento vocale: microfono acquisito.");
@@ -92,7 +101,7 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
         if (result.isFinal) {
           const processed = applyVoiceCommands(raw, getCommands());
           finalText += processed;
-          log("Trascrizione: " + processed, "", "transcript");
+          if (processed.trim()) log("Trascrizione: " + processed, "", "transcript");
         } else {
           partial += (partial ? " " : "") + raw.trim();
         }
@@ -105,14 +114,19 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
     session.onerror = event => {
       if (recognition !== session) return;
       const type = event.error || "unknown";
-      log("Riconoscimento vocale: errore " + type + ".",
-        event.message || "", "error");
+      const recoverable = ["network", "no-speech", "aborted"].includes(type);
+      lastFailure = type;
+      if (recoverable) {
+        log("Riconoscimento vocale: interruzione " + type + ".", event.message || "", "diagnostic");
+      } else {
+        log("Riconoscimento vocale: errore " + type + ".", event.message || "", "error");
+      }
       if (["not-allowed", "service-not-allowed", "audio-capture", "language-not-supported"].includes(type)) {
         fatal = true;
         desired = false;
         showButtons();
       }
-      display("Errore: " + type);
+      display(recoverable ? "Riconnessione automatica…" : "Errore: " + type);
     };
     session.onend = () => {
       if (recognition !== session) return;
@@ -125,21 +139,43 @@ export function initSpeechTest({button, status, interim, log, getCommands = () =
       else if (!fatal) display("Riconoscimento terminato");
     };
     try {
-      session.start();
+      const track = microphoneStream?.getAudioTracks()[0];
+      if (track && track.readyState !== "live") throw new Error("Il microfono selezionato non è disponibile.");
+      if (track) session.start(track);
+      else session.start();
     } catch (error) {
       recognition = null;
-      log("Riconoscimento vocale: avvio non riuscito.", error.message, "error");
+      lastFailure = "start";
+      log("Riconoscimento vocale: avvio non riuscito.", error.message, "diagnostic");
       scheduleRestart();
     }
   }
 
-  function start() {
-    if (!Constructor || desired) return;
+  async function start() {
+    if (!Constructor || desired || starting) return;
     desired = true;
+    starting = true;
     fatal = false;
     failures = 0;
     showButtons();
-    launch();
+    try {
+      const microphoneId = getMicrophoneId();
+      if (microphoneId) {
+        microphoneStream = await navigator.mediaDevices.getUserMedia({
+          audio:{deviceId:{exact:microphoneId}},video:false,
+        });
+      }
+      if (desired) launch();
+      else {
+        microphoneStream?.getTracks().forEach(track=>track.stop());
+        microphoneStream = null;
+      }
+    } catch (error) {
+      desired = false;
+      display("Impossibile selezionare il microfono");
+      log("Riconoscimento vocale: impossibile aprire il microfono selezionato.",error.message,"error");
+      showButtons();
+    } finally { starting = false; }
   }
   button.onclick = () => desired ? stop() : start();
   return {stop, clear, start, supported: !!Constructor, get active() { return desired; }, snapshot: () => ({final:finalText,interim:partialText,revision})};

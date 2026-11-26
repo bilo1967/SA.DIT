@@ -58,3 +58,8 @@
 - Prova manuale su due PC: verifica audio Sala → Interprete in entrambe le
   modalità; modalità esterna invariata; modalità interna, newline,
   avvio/arresto, ricollegamento dopo `network`, proiezione.
+
+## Interfaccia e periferiche (novembre 2026)
+- Interprete: Setup distingue cuffie e microfono; `interpreterMicrophoneId` è salvato in `preferences.json`.
+- Riconoscimento integrato: testo provvisorio e definitivo solo nel registro; errori di rete recuperabili nascosti, non quelli irreversibili.
+- I comandi vocali restano in `voice-commands.json` accanto all'eseguibile ove scrivibile.

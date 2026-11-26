@@ -60,11 +60,34 @@ function showSettings() {
   $("settingsDialog").showModal();
 }
 
-function updateDeviceOptions() {
+function headphonesIcon() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="13" width="4" height="8" rx="2"/><rect x="17" y="13" width="4" height="8" rx="2"/></svg>';
+}
+
+async function updateDeviceOptions() {
+  const interpreter = app.getRole() === "interpreter";
+  $("settingsAudioLegend").textContent = interpreter ? "Dispositivi audio" : "Dispositivo audio";
+  $("settingsDeviceLabel").innerHTML = interpreter ? headphonesIcon() + "Cuffie" : "Dispositivo preferito";
+  $("settingsMicrophoneRow").classList.toggle("hidden", !interpreter);
   const select = $("settingsDevice");
-  const current = app.getRole() === "room" ? preferences.inputDeviceId : preferences.outputDeviceId;
+  const current = interpreter ? preferences.outputDeviceId : preferences.inputDeviceId;
   select.replaceChildren(...[...$("deviceSelect").options].map(o => new Option(o.textContent, o.value)));
-  if ([...select.options].some(o => o.value === current)) select.value = current;
+  select.value = [...select.options].some(o=>o.value===current) ? current : "";
+  if (interpreter) {
+    const mic = $("settingsMicrophone");
+    const saved = preferences.interpreterMicrophoneId || "";
+    mic.replaceChildren(new Option("Predefinito", ""));
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      for (const device of devices.filter(d => d.kind === "audioinput" && d.deviceId && d.deviceId !== "default"))
+        mic.add(new Option(device.label || "Microfono " + mic.length, device.deviceId));
+    } catch (error) {
+      app.log("Impossibile elencare i microfoni.", error.message);
+    }
+    if (saved && ![...mic.options].some(o=>o.value===saved))
+      mic.add(new Option("Microfono precedentemente selezionato", saved));
+    mic.value = saved;
+  }
 }
 
 async function saveDialog(event) {
@@ -81,7 +104,10 @@ async function saveDialog(event) {
     signaling = next;
     app.setSignaling(signaling);
     const chosenDevice = $("settingsDevice").value;
-    await savePrefs(app.getRole() === "room" ? {inputDeviceId:chosenDevice} : {outputDeviceId:chosenDevice});
+    await savePrefs(app.getRole() === "room" ? {inputDeviceId:chosenDevice} : {
+      outputDeviceId:chosenDevice,
+      interpreterMicrophoneId:$("settingsMicrophone").value,
+    });
     app.chooseDevice(chosenDevice);
     $("settingsDialog").close();
     app.log("Impostazioni salvate. Le impostazioni di rete valgono dalla prossima connessione.");
@@ -105,7 +131,7 @@ export async function initSettings(interfaceAPI) {
     rows.scrollTop = rows.scrollHeight;
     rows.lastElementChild.querySelector("input").focus();
   });
-  $("settingsRefreshDevices").addEventListener("click", async () => { await app.refreshDevices(); updateDeviceOptions(); });
+  $("settingsRefreshDevices").addEventListener("click", async () => { await app.refreshDevices(); await updateDeviceOptions(); });
   $("settingsForm").addEventListener("submit", saveDialog);
   return { savePrefs, getPreferences: () => preferences };
 }

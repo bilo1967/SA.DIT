@@ -33,7 +33,7 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 /* A fixed dialog keeps the device, network fields and actions in place. */
 #settingsDialog{width:min(760px,92vw);height:540px;max-height:calc(100dvh - 28px);overflow:hidden;border:1px solid #c7d7e5;border-radius:12px;padding:14px 18px;box-shadow:0 15px 45px #213b5360}
 #settingsDialog::backdrop{background:#304b6488}
-#settingsForm{height:100%;min-height:0;display:flex;flex-direction:column;gap:10px}
+#settingsForm{height:100%;min-height:0;display:flex;flex-direction:column;gap:7px}
 .dialog-header,.dialog-actions{display:flex;align-items:center;justify-content:space-between}
 .dialog-header{flex:none;height:28px;margin:0}
 #settingsDialog fieldset{flex:none;min-width:0;border:1px solid #dae5ed;border-radius:8px;margin:0;padding:8px 10px}
@@ -43,7 +43,12 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 #settingsDialog button{padding:5px 10px}
 .settings-device-row{display:flex;align-items:center;gap:8px}
 .settings-device-row label,.settings-device-row button{flex:none}
-#settingsDevice{flex:1;min-width:0;width:auto;margin:0}
+#settingsDevice,#settingsMicrophone{flex:1;min-width:0;width:auto;margin:0}
+#settingsDialog .settings-audio{padding-top:5px;padding-bottom:5px}
+#settingsDialog .settings-audio .settings-device-row{min-height:30px;margin:2px 0}
+.settings-device-row label{display:flex;align-items:center;gap:7px;min-width:126px}
+.settings-device-row label svg{width:17px;height:17px;flex:none;fill:none;stroke:#176a9f;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#settingsDialog .settings-ice{min-height:0}
 .settings-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(70px,1fr) minmax(70px,1fr) auto;gap:10px;align-items:end}
 .settings-grid label{display:flex;flex-direction:column;gap:3px}
 .settings-grid .check-label{height:31px;flex-direction:row;align-items:center;gap:6px;padding:0}
@@ -116,3 +121,7 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 .voice-row button{padding:4px}
 .voice-add{flex:none;padding:5px 16px}
 #voiceCommandsDialog .dialog-footer{flex:none;min-height:64px;padding:9px 16px;border-top:1px solid #d9e5ed}
+
+/* Compact recognition mode; transcript is shown only in the event log. */
+.speech-test{margin-top:6px}
+.log-entry{line-height:1.12;padding-top:1px;padding-bottom:1px}
