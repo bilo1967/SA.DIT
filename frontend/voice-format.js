@@ -17,10 +17,43 @@ export function applyVoiceCommands(raw, commands) {
     const prefix = /^[.,;:!?]/.test(r) ? "[ \\t]*" : "";
     text = text.replace(new RegExp(prefix + escaped, "gi"), () => r);
   }
-  // Edge/Chrome punctuation is authoritative: never synthesize punctuation.
-  // Trim only spaces immediately preceding explicitly requested line breaks.
   text = text.replace(/[ \t]+\n/g, "\n");
-  text = text.replace(/#M\s*([a-zà-ÿ])/gi, (_, letter) => letter.toUpperCase());
-  text = text.replace(/^(\s*)([a-zà-ÿ])/i, (_, spaces, letter) => spaces + letter.toUpperCase());
+  text = text.replace(/#M\s*([a-zà-ÿ])/gi, (_, letter) => letter.toLocaleUpperCase("it-IT"));
   return text;
+}
+
+// Remove only Edge's automatically appended single full stop, not ellipses.
+export function cleanEdgeSegment(raw) {
+  const text = String(raw ?? "").trim();
+  if (!text || /^\p{P}$/u.test(text)) return "";
+  if (text.endsWith(".") && !text.endsWith("..")) return text.slice(0,-1).trimEnd();
+  return text;
+}
+
+// Keep exactly one space after punctuation when more text follows,
+// except when the next character is a newline. Ellipses stay intact.
+export function reviewPunctuation(text) {
+  return text.replace(/[ \t]+([.,;:!?])/g, "$1")
+    .replace(/([.,;:!?])[ \t]*(?=[^\r\n])/g, (match,punctuation,offset,all) => {
+      if (punctuation === "." && (all[offset-1] === "." || all[offset+match.length] === ".")) return match;
+      return punctuation + " ";
+    }).replace(/([.,;:!?])[ \t]+(?=\r?\n)/g, "$1");
+}
+
+// Concatenate finalized segments, with sentence-initial casing.
+export function appendReviewedSegment(previous, processed, options = {}) {
+  if (!processed) return previous;
+  const last = previous.trimEnd().slice(-1);
+  const startsLine = /^[\r\n]/.test(processed);
+  const startsPunct = /^[.,;:!?]/.test(processed);
+  const separator = previous && !/\s$/.test(previous) && !startsLine && !startsPunct ? " " : "";
+  let next = processed;
+  const index = next.search(/[a-zà-ÿ]/i);
+  if (index >= 0) {
+    const uppercase = !previous.trim() || /[.!?]/.test(last) || !!options.forceUppercase;
+    next = next.slice(0,index) +
+      (uppercase ? next[index].toLocaleUpperCase("it-IT") : next[index].toLocaleLowerCase("it-IT")) +
+      next.slice(index+1);
+  }
+  return reviewPunctuation(previous + separator + next);
 }

@@ -1,6 +1,6 @@
 // Interpreter Web Speech recognizer: persistent state, DIT.tafono keywords and
 // bounded restart after unexpected onend (including recoverable network errors).
-import { applyVoiceCommands } from "./voice-format.js";
+import { cleanEdgeSegment, applyVoiceCommands, appendReviewedSegment } from "./voice-format.js";
 
 export function initSpeechTest({button, status = {textContent:""}, interim = {textContent:""}, log, getCommands = () => [], onTranscript = () => {}, onInterim = () => {}}) {
   const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -102,10 +102,17 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
         const raw = result[0]?.transcript;
         if (typeof raw !== "string") continue;
         if (result.isFinal) {
-          const processed = applyVoiceCommands(raw, getCommands());
-          if (processed) {
-            finalText += processed;
-            if (processed.trim()) log("Trascrizione: " + processed, "", "transcript");
+          const cleaned = cleanEdgeSegment(raw);
+          if (!cleaned) continue;
+          const commands = getCommands();
+          const processed = applyVoiceCommands(cleaned, commands);
+          if (!processed) continue;
+          const previous = finalText;
+          const forceUppercase = commands.some(({t,r}) =>
+            r === "#M" && cleaned.toLocaleLowerCase("it-IT").startsWith(t.toLocaleLowerCase("it-IT")));
+          finalText = appendReviewedSegment(previous, processed, {forceUppercase});
+          if (finalText !== previous) {
+            if (processed.trim()) log("Trascrizione: " + finalText.slice(previous.length).trimStart(), "", "transcript");
             emit();
           }
         } else {
