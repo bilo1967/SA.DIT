@@ -91,3 +91,21 @@
 - La trasparenza con `SetBackgroundColour` dopo `SetFrameless` non ha risolto
   il problema su Windows; resta una limitazione aperta da verificare con una
   differente gestione nativa della finestra.
+
+## 26 novembre 2026: post-processing, chiusura e proiezione
+- Riconoscimento integrato: Edge (soli risultati `isFinal`) viene ripulito
+  dal singolo punto finale automatico; segmenti vuoti o di un solo segno
+  di punteggiatura sono ignorati. Poi si applicano i comandi vocali
+  configurati (incluso «punto fermo»), poi la revisione finale.
+- La revisione rende minuscola l'iniziale della frase successiva quando la
+  precedente non finisce in punto, ? o !; negli altri casi usa maiuscola.
+  Dopo . , ; : ? ! usa un solo spazio se non segue un ritorno a capo.
+  Non aggiunge un punto finale automatico.
+- Chiudendo la finestra principale con la X viene inviato `session-end`
+  alla controparte via PeerJS, poi l'applicazione esce; i controlli remoti
+  vengono resettati e il log riporta la disconnessione. La correzione è
+  presente anche nel branch `prototype/media-validation`.
+- Trasparenza rinviata: con barra titolo visibile funziona inizialmente;
+  dopo aver attivato `Frameless` una volta, la trasparenza non si ripristina
+  finché non si riavvia l'app con l'opzione barra nascosta disattivata.
+  Ora due temi opachi (bianco su nero / nero su bianco) e font ±.

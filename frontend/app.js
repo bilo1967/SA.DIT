@@ -102,8 +102,6 @@ function newRole(next) {
   disconnect(false);
   role = next;
   $("openVoiceCommands").classList.add("hidden");
-  $("textTransparencyOption").classList.add("hidden");
-  $("textTransparency").checked = false;
   $("roleScreen").classList.add("hidden");
   $("workspace").classList.remove("hidden");
   $("changeRole").classList.remove("hidden");
@@ -192,7 +190,6 @@ function attachData(connection) {
         failure("Impossibile inviare l'audio della Sala.",e);
       });
       if (roomMode === "integrated") {
-        $("textTransparencyOption").classList.remove("hidden");
         projectionEmit("text-mode", {mode:"integrated"});
         startProjection().then(() => projectionEmit("text-mode", {mode:"integrated"}))
           .catch(e => failure("Non riesco ad aprire la proiezione testuale.",e));
@@ -289,8 +286,6 @@ function disconnect(writeLog = true) {
   logInterim("");
   $("integratedSpeechControls").classList.add("hidden");
   $("openVoiceCommands").classList.add("hidden");
-  $("textTransparencyOption").classList.add("hidden");
-  $("textTransparency").checked = false;
   // Stop capture even when the other side disappears unexpectedly.
   closeNetwork();
   if (reserveVideoTimer) clearInterval(reserveVideoTimer);
@@ -726,7 +721,7 @@ function sendProjectionOffer() {
 
 Events.On("sadit:projection:ready", () => {
   if (role === "room" && roomMode === "integrated") {
-    projectionEmit("text-mode",{mode:"integrated",transparent:$("textTransparency").checked});
+    projectionEmit("text-mode",{mode:"integrated"});
     projectionEmit("transcript",roomTranscript);
     return;
   }
@@ -839,10 +834,6 @@ function confirmDisconnect() {
 }
 $("startInterpreter").onclick = () => busy && peer ? confirmDisconnect() : startInterpreter();
 $("startIntegrated").onclick = () => busy && peer ? confirmDisconnect() : startIntegrated();
-$("textTransparency").onchange = () => {
-  if (role === "room" && roomMode === "integrated")
-    projectionEmit("text-mode",{mode:"integrated",transparent:$("textTransparency").checked});
-};
 $("joinRoom").onclick = () => busy && peer ? confirmDisconnect() : joinRoom();
 $("changeSharing").onclick = changeSharing;
 $("stopSharing").onclick = stopSharing;

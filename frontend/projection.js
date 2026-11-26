@@ -10,6 +10,13 @@ const interimTranscript = document.getElementById("interimTranscript");
 let displayMode = "external";
 let lastTextRevision = -1;
 let subtitleFontSize = 36;
+let lightTheme = false;
+const themeButton = document.getElementById("themeToggle");
+themeButton.onclick = () => {
+  lightTheme = !lightTheme;
+  document.documentElement.classList.toggle("theme-light", lightTheme);
+  themeButton.textContent = lightTheme ? "Bianco su nero" : "Nero su bianco";
+};
 function resizeSubtitle(delta) {
   subtitleFontSize = Math.min(96,Math.max(16,subtitleFontSize + delta));
   textProjection.style.setProperty("--subtitle-size",subtitleFontSize+"px");
@@ -51,7 +58,7 @@ function stop() {
   textProjection.style.display = "none";
   finalTranscript.textContent = "";
   interimTranscript.textContent = "";
-  document.documentElement.classList.remove("text-transparent","text-mode");
+  document.documentElement.classList.remove("text-mode");
   message("In attesa dei sottotitoli dell'interprete…");
 }
 
@@ -69,7 +76,7 @@ Events.On("sadit:projection:text-mode", event => {
   placeholder.style.display = "none";
   textProjection.style.display = "block";
   document.documentElement.classList.add("text-mode");
-  document.documentElement.classList.toggle("text-transparent", !!payload.transparent);
+
 });
 Events.On("sadit:projection:transcript", event => {
   const payload = event.data || {};

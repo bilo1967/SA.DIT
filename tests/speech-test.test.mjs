@@ -102,6 +102,6 @@ test("interim recognition stays local and never reaches the room", () => {
   assert.equal(local.at(-1),"ancora da verificare");
   assert.equal(packets.length,0);
   session.onresult({resultIndex:0,results:[Object.assign([{transcript:"Test definitivo."}],{isFinal:true})]});
-  assert.deepEqual(packets,[{type:"transcript",revision:1,final:"Test definitivo."}]);
+  assert.deepEqual(packets,[{type:"transcript",revision:1,final:"Test definitivo"}]);
   speech.stop();
 });
