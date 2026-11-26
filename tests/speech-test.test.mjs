@@ -50,7 +50,7 @@ test("uses default microphone, captures interim and final text, and aborts on st
     ],
   });
   assert.equal(ui.interim.textContent, "a tutti");
-  assert(ui.entries.some(([message]) => message === "Trascrizione: Buongiorno"));
+  assert(ui.entries.some(([message]) => message === "Buongiorno"));
   ui.button.onclick();
   assert.equal(instance.aborted, true);
   assert.equal(speech.active, false);
