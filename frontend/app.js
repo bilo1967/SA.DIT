@@ -3,6 +3,7 @@ import { Call, Events } from "/wails/runtime.js";
 import { initSettings } from "./settings.js";
 import { initProjectionWindow } from "./projection-window.js";
 import { initSpeechTest } from "./speech-test.js";
+import { initVoiceCommands } from "./voice-commands.js";
 
 const $ = id => document.getElementById(id);
 let role = null;
@@ -11,6 +12,14 @@ let savePrefs = async () => {};
 let peer = null, data = null, media = null;
 let localStream = null, remoteStream = null;
 let busy = false;
+let sessionMode = null; // interpreter: external | integrated
+let roomMode = null; // room: mode announced by the interpreter
+let roomMediaStarted = false;
+let roomPeerId = null;
+let roomTranscriptRevision = -1;
+let roomTranscript = {final:"",interim:"",revision:0};
+let interimLogEntry = null;
+let voiceCommands = {get: () => []};
 let switchingSharing = false;
 let projectionPC = null;
 let pendingProjectionICE = [];
@@ -33,7 +42,7 @@ const projectionWindow = initProjectionWindow({
 const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
   const item = document.createElement("div");
-  const visible = level === "error" || essentialLog.test(message);
+  const visible = level === "error" || level === "transcript" || level === "interim" || essentialLog.test(message);
   item.className = "log-entry " + level + (visible ? "" : " diagnostic");
   const time = document.createElement("span");
   time.className = "time";
@@ -51,6 +60,23 @@ function log(message, technical = "", level = "info") {
   $("log").append(item);
   $("log").scrollTop = $("log").scrollHeight;
 }
+// Update the single provisional entry instead of flooding the event log.
+function logInterim(text) {
+  if (!text) { interimLogEntry?.remove(); interimLogEntry = null; return; }
+  if (!interimLogEntry || !interimLogEntry.isConnected) {
+    interimLogEntry = document.createElement("div");
+    interimLogEntry.className = "log-entry interim";
+    const time = document.createElement("span");
+    time.className = "time";
+    time.textContent = new Date().toLocaleTimeString();
+    const content = document.createElement("span");
+    content.className = "message";
+    interimLogEntry.append(time, content);
+    $("log").append(interimLogEntry);
+  }
+  interimLogEntry.querySelector(".message").textContent = "Parziale: " + text;
+  $("log").scrollTop = $("log").scrollHeight;
+}
 function failure(description, error) {
   log(description, error?.message || String(error || ""), "error");
   setStatus(description, "error");
@@ -61,8 +87,8 @@ function setStatus(label, kind = "") {
   $("connDot").className = "dot " + kind;
 }
 function connectionActive(yes) {
-  $("changeSharing").classList.toggle("hidden", !(yes && role === "interpreter"));
-  $("stopSharing").classList.toggle("hidden", !(yes && role === "interpreter"));
+  $("changeSharing").classList.toggle("hidden", !(yes && role === "interpreter" && sessionMode === "external"));
+  $("stopSharing").classList.toggle("hidden", !(yes && role === "interpreter" && sessionMode === "external"));
   $("pinInput").disabled = yes;
   $("chatText").disabled = !yes;
   $("sendChat").disabled = !yes;
@@ -74,6 +100,7 @@ function newRole(next) {
   speechTest.stop();
   disconnect(false);
   role = next;
+  $("openVoiceCommands").classList.add("hidden");
   $("roleScreen").classList.add("hidden");
   $("workspace").classList.remove("hidden");
   $("changeRole").classList.remove("hidden");
@@ -137,12 +164,36 @@ function attachData(connection) {
   data = connection;
   data.on("open", () => {
     if (data !== connection) return;
+    if (role === "interpreter" && sessionMode) {
+      connection.send({type:"session-mode",mode:sessionMode});
+      if (sessionMode === "integrated") connection.send({type:"transcript",...speechTest.snapshot()});
+    }
     connectionActive(true);
     setStatus("Collegato alla controparte", "connected");
     log("Canale chat e segnalazione attivo.");
   });
   data.on("data", payload => {
-    if (payload && payload.type === "chat" && typeof payload.text === "string") addMessage(payload.text.slice(0, 2000));
+    if (!payload || typeof payload !== "object") return;
+    if (payload.type === "chat" && typeof payload.text === "string") addMessage(payload.text.slice(0, 2000));
+    if (role === "room" && payload.type === "session-mode" && !roomMode) {
+      if (payload.mode !== "external" && payload.mode !== "integrated") return;
+      roomMode = payload.mode;
+      log(roomMode === "integrated" ? "Modalità riconoscimento integrato: ricezione testo." : "Modalità riconoscimento esterno: ricezione video.");
+      if (roomMode === "external") startRoomMedia().catch(e => { disconnect(false); failure("Impossibile avviare il collegamento multimediale.",e); });
+      else {
+        projectionEmit("text-mode", {mode:"integrated"});
+        startProjection().then(() => projectionEmit("text-mode", {mode:"integrated"}))
+          .catch(e => failure("Non riesco ad aprire la proiezione testuale.",e));
+      }
+    }
+    if (role === "room" && roomMode === "integrated" && payload.type === "transcript" &&
+        Number.isSafeInteger(payload.revision) && payload.revision > roomTranscriptRevision &&
+        typeof payload.final === "string" && typeof payload.interim === "string" &&
+        payload.final.length <= 200000 && payload.interim.length <= 10000) {
+      roomTranscriptRevision = payload.revision;
+      roomTranscript = {final:payload.final,interim:payload.interim,revision:payload.revision};
+      projectionEmit("transcript", roomTranscript);
+    }
   });
   data.on("close", () => {
     // Clear the old data connection as well: otherwise the interpreter rejects
@@ -209,6 +260,15 @@ function closeNetwork() {
 }
 function disconnect(writeLog = true) {
   speechTest.stop();
+  sessionMode = null;
+  roomMode = null;
+  roomMediaStarted = false;
+  roomPeerId = null;
+  roomTranscriptRevision = -1;
+  roomTranscript = {final:"",interim:"",revision:0};
+  logInterim("");
+  $("integratedSpeechControls").classList.add("hidden");
+  $("openVoiceCommands").classList.add("hidden");
   // Stop capture even when the other side disappears unexpectedly.
   closeNetwork();
   if (reserveVideoTimer) clearInterval(reserveVideoTimer);
@@ -229,10 +289,13 @@ function disconnect(writeLog = true) {
   projectionProbeCount = 0;
   connectionActive(false);
   $("startInterpreter").disabled = false;
+  $("startIntegrated").disabled = false;
   $("joinRoom").disabled = false;
-  $("startInterpreter").textContent = "Condividi finestra e ottieni PIN";
+  $("startInterpreter").textContent = "Ric. vocale esterno (condividi finestra)";
+  $("startIntegrated").textContent = "Ric. vocale integrato (seleziona microfono)";
   $("joinRoom").textContent = "Connettiti";
   $("startInterpreter").classList.remove("is-connected");
+  $("startIntegrated").classList.remove("is-connected");
   $("joinRoom").classList.remove("is-connected");
   $("changeSharing").classList.add("hidden");
   $("stopSharing").classList.add("hidden");
@@ -289,6 +352,8 @@ async function prioritizeTextEncoding(call, label) {
 
 async function startInterpreter() {
   if (busy) return;
+  sessionMode = "external";
+  $("startIntegrated").disabled = true;
   busy = true;
   $("startInterpreter").disabled = true;
   setStatus("Seleziona la finestra da trasmettere", "waiting");
@@ -349,6 +414,44 @@ async function startInterpreter() {
     failure("Non riesco ad avviare la condivisione della finestra.", e);
   }
 }
+
+// Integrated mode uses only PeerJS data messages; neither party starts a media call.
+function startIntegrated() {
+  if (busy) return;
+  if (!speechTest.supported) {
+    failure("SpeechRecognition non disponibile in questa WebView.");
+    return;
+  }
+  busy = true;
+  sessionMode = "integrated";
+  speechTest.clear();
+  $("startInterpreter").disabled = true;
+  $("startIntegrated").disabled = true;
+  setStatus("Registrazione PIN per sottotitoli testuali", "waiting");
+  try {
+    const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000);
+    peer = makePeer("sadit-" + pin);
+    peer.on("connection", incoming => {
+      if (data) { incoming.close(); return; }
+      attachData(incoming);
+    });
+    peer.on("call", incoming => incoming.close());
+    peer.on("open", () => {
+      $("startIntegrated").disabled = false;
+      $("startIntegrated").textContent = "Disconnettiti";
+      $("startIntegrated").classList.add("is-connected");
+      $("pinDisplay").textContent = pin;
+      $("copyPIN").disabled = false;
+      $("integratedSpeechControls").classList.remove("hidden");
+      $("openVoiceCommands").classList.remove("hidden");
+      setStatus("PIN pronto · riconoscimento integrato", "waiting");
+      log("PIN creato per il riconoscimento integrato.");
+    });
+  } catch (error) {
+    disconnect(false);
+    failure("Impossibile avviare il riconoscimento integrato.", error);
+  }
+}
 // Reserve a video m-line in the Room's PeerJS offer. Without it, an
 // audio-only offer cannot negotiate the interpreter's video in the answer.
 // This tiny silent synthetic video is never shown or sent to the interpreter UI.
@@ -376,59 +479,69 @@ function reserveIncomingVideoChannel(stream) {
 async function joinRoom() {
   if (busy) return;
   const pin = $("pinInput").value.trim();
-  if (!/^\d{6}$/.test(pin)) { failure("Inserisci il PIN di sei cifre dell'interprete."); return; }
+  if (!/^\\d{6}$/.test(pin)) { failure("Inserisci il PIN di sei cifre dell'interprete."); return; }
   busy = true;
   $("joinRoom").disabled = true;
   setStatus("Collegamento con l'interprete", "waiting");
   try {
-    localStream = await selectedAudio();
-    reserveIncomingVideoChannel(localStream);
     peer = makePeer();
     peer.on("open", () => {
       $("joinRoom").disabled = false;
       $("joinRoom").textContent = "Disconnettiti";
       $("joinRoom").classList.add("is-connected");
-      const id = "sadit-" + pin;
-      log("Sala: richiesta connessione dati a PeerJS.", "Peer remoto: " + id);
-      const connection = peer.connect(id, {reliable:true});
-      attachData(connection);
-      connection.on("open", () => {
-        log("Sala: invio offerta audio/video all'Interprete.",
-          "Tracce audio: " + localStream.getAudioTracks().length +
-          " · Tracce video: " + localStream.getVideoTracks().length);
-        media = peer.call(id, localStream);
-        if (!media) { failure("Non riesco a iniziare lo scambio multimediale."); return; }
-        observeMediaConnection(media, "Sala");
-
-        media.on("stream", stream => {
-          if (media === null) return;
-          remoteStream = stream;
-          const videoTracks = stream.getVideoTracks();
-          const audioTracks = stream.getAudioTracks();
-          log("WebRTC: flusso remoto ricevuto.", "Video: " + videoTracks.length + " · Audio: " + audioTracks.length);
-          for (const track of videoTracks) {
-            log("Traccia video remota.", "ID: " + track.id + " · Stato: " + track.readyState + " · Muted: " + track.muted);
-            track.onunmute = () => log("Traccia video: arrivano dati.");
-            track.onmute = () => log("Traccia video: dati sospesi.");
-            track.onended = () => log("Traccia video: terminata.");
-          }
-          clearInterval(videoStatsTimer);
-          videoStatsTimer = setInterval(() => reportVideoStats(), 5000);
-          startProjection().catch(e => failure("Non riesco ad aprire la proiezione.", e));
-        });
-        media.on("error", e => failure("Non riesco a ricevere il video dell'interprete.", e));
-        const currentMedia = media;
-        currentMedia.on("close", () => {
-          if (media !== currentMedia) return;
-          disconnect(false);
-          log("L'Interprete ha interrotto la connessione. Audio e proiezione chiusi.");
-        });
-      });
+      roomPeerId = "sadit-" + pin;
+      log("Sala: collegamento dati in corso.", roomPeerId);
+      attachData(peer.connect(roomPeerId, {reliable:true}));
     });
-  } catch (e) {
+  } catch (error) {
     disconnect(false);
-    failure("Non riesco a connettere la sala.", e);
+    failure("Non riesco a connettere la sala.", error);
   }
+}
+
+// Create the legacy audio/video call only after the Interpreter announces external mode.
+async function startRoomMedia() {
+  if (role !== "room" || roomMode !== "external" || roomMediaStarted) return;
+  roomMediaStarted = true;
+  const activePeer = peer;
+  const id = roomPeerId;
+  const stream = await selectedAudio();
+  if (peer !== activePeer || roomMode !== "external") {
+    stream.getTracks().forEach(track => track.stop());
+    return;
+  }
+  localStream = stream;
+  reserveIncomingVideoChannel(localStream);
+  log("Sala: invio offerta audio/video all'Interprete.",
+    "Audio: " + localStream.getAudioTracks().length + " · Video: " + localStream.getVideoTracks().length);
+  media = peer.call(id, localStream);
+  if (!media) throw new Error("Non riesco a iniziare lo scambio multimediale.");
+  observeMediaConnection(media, "Sala");
+  const currentMedia = media;
+  currentMedia.on("stream", stream => {
+    if (media !== currentMedia) return;
+    remoteStream = stream;
+    const videoTracks = stream.getVideoTracks();
+    const audioTracks = stream.getAudioTracks();
+    log("WebRTC: flusso remoto ricevuto.", "Video: " + videoTracks.length + " · Audio: " + audioTracks.length);
+    for (const track of videoTracks) {
+      log("Traccia video remota.", "ID: " + track.id + " · Stato: " + track.readyState);
+      track.onunmute = () => log("Traccia video: arrivano dati.");
+      track.onmute = () => log("Traccia video: dati sospesi.");
+      track.onended = () => log("Traccia video: terminata.");
+    }
+    clearInterval(videoStatsTimer);
+    videoStatsTimer = setInterval(() => reportVideoStats(), 5000);
+    startProjection().catch(error => failure("Non riesco ad aprire la proiezione.",error));
+  });
+  currentMedia.on("error", error => {
+    if (media === currentMedia) failure("Non riesco a ricevere il video dell'interprete.",error);
+  });
+  currentMedia.on("close", () => {
+    if (media !== currentMedia) return;
+    disconnect(false);
+    log("L'Interprete ha interrotto la connessione.");
+  });
 }
 async function startProjection() {
   // Revealing the same page preserves both the WebRTC connection and its crop.
@@ -566,6 +679,11 @@ function sendProjectionOffer() {
 }
 
 Events.On("sadit:projection:ready", () => {
+  if (role === "room" && roomMode === "integrated") {
+    projectionEmit("text-mode",{mode:"integrated"});
+    projectionEmit("transcript",roomTranscript);
+    return;
+  }
   log("Proiezione: ricevuto READY dalla seconda finestra.");
   if (role === "room" && remoteStream && !projectionConnected) sendProjectionOffer();
 });
@@ -609,6 +727,16 @@ const speechTest = initSpeechTest({
   status: $("speechTestStatus"),
   interim: $("speechTestInterim"),
   log,
+  getCommands: () => voiceCommands.get(),
+  onTranscript: payload => {
+    if (role === "interpreter" && sessionMode === "integrated" && data?.open)
+      data.send(payload);
+  },
+  onInterim: logInterim,
+});
+voiceCommands = await initVoiceCommands({log}).catch(error => {
+  failure("Non riesco a caricare i comandi vocali.",error);
+  return {get:()=>[]};
 });
 $("chooseInterpreter").onclick = () => newRole("interpreter");
 $("chooseRoom").onclick = () => newRole("room");
@@ -624,7 +752,7 @@ $("changeRole").onclick = () => {
 
 // Stop only the video: keep the session, chat and incoming audio alive.
 function stopSharing() {
-  if (role !== "interpreter") return;
+  if (role !== "interpreter" || sessionMode !== "external") return;
   const track = localStream?.getVideoTracks()[0];
   if (!track || track.readyState === "ended") return;
   switchingSharing = true;
@@ -636,7 +764,7 @@ function stopSharing() {
 
 // Switch the shared window in the existing PeerJS call without renegotiation.
 async function changeSharing() {
-  if (role !== "interpreter" || !media?.peerConnection) {
+  if (role !== "interpreter" || sessionMode !== "external" || !media?.peerConnection) {
     log("Per cambiare finestra, attendi prima la connessione della Sala.");
     return;
   }
@@ -666,12 +794,13 @@ function confirmDisconnect() {
   if (window.confirm("Disconnettere SA.DIT e interrompere i flussi audio e video?")) disconnect();
 }
 $("startInterpreter").onclick = () => busy && peer ? confirmDisconnect() : startInterpreter();
+$("startIntegrated").onclick = () => busy && peer ? confirmDisconnect() : startIntegrated();
 $("joinRoom").onclick = () => busy && peer ? confirmDisconnect() : joinRoom();
 $("changeSharing").onclick = changeSharing;
 $("stopSharing").onclick = stopSharing;
 // The primary connection buttons handle confirmed disconnection.
 $("refreshDevice").onclick = () => refreshDevices(true);
-$("clearLog").onclick = () => $("log").replaceChildren();
+$("clearLog").onclick = () => { $("log").replaceChildren(); interimLogEntry = null; };
 $("copyLog").onclick = async () => {
   const content = [...$("log").querySelectorAll(".log-entry")].map(entry => {
     const time = entry.querySelector(".time")?.textContent || "";
