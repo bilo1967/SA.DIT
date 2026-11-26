@@ -85,7 +85,7 @@ export function appendReviewedSegment(previous, processed, options = {}) {
   if (!processed) return previous;
   // A standalone explicit stop closes the preceding segment, but cannot
   // create duplicate punctuation when that segment already ends with it.
-  if (/^[.!?][\\s]*$/.test(processed) && previous.trimEnd().endsWith(processed.trim()))
+  if (/^[.!?]\s*$/.test(processed) && previous.trimEnd().endsWith(processed.trim()))
     return previous;
   const last = previous.trimEnd().slice(-1);
   const startsLine = /^[\r\n]/.test(processed);
