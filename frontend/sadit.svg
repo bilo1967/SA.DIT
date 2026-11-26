@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 24 280 260" width="280" height="260">
+  <!-- Videoproiettore -->
+  <g transform="translate(60,120) scale(12)">
+    <path fill="#000000" d="M2.5 6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1zm0 2a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1z"/>
+    <path fill="#000000" d="M0 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1H5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1 2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/>
+    <!-- Lente blu elettrico -->
+    <circle cx="12.5" cy="7.5" r="1.5" fill="#0A4DFF"/>
+  </g>
+  <!-- Fumetto verde scuro -->
+  <g transform="translate(130,20) scale(8)" fill="#FFFFFF" stroke="#0B5D2E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.4 3a5.34 5.34 0 0 1 4.906 3.239a5.333 5.333 0 0 1 -1.195 10.6a4.26 4.26 0 0 1 -5.28 1.863l-3.831 2.298v-3.134a2.668 2.668 0 0 1 -1.795 -3.773a4.8 4.8 0 0 1 2.908 -8.933a5.33 5.33 0 0 1 4.287 -2.16"/>
+    <path fill="none" d="M7 10h10"/>
+    <path fill="none" d="M9 14h5"/>
+  </g>
+</svg>
