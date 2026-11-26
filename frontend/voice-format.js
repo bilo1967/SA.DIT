@@ -50,6 +50,17 @@ export function stripEdgePunctuationAfterCommand(text, commands) {
   return value;
 }
 
+// A punctuation-only result is valid when it came from an explicitly spoken
+// command (e.g. "punto fermo" in a separate final Edge segment).
+export function containsSpokenPunctuationCommand(text, commands) {
+  const source = String(text ?? "");
+  return commands.some(({t, r}) => {
+    if (!t?.trim() || !/^[.,;:!?…]/.test(String(r ?? "").trim())) return false;
+    const quoted = t.replace(/[.*+?^$()|[\]{}\\]/g, "\\// Keep exactly one space after punctuation when more text follows,");
+    return new RegExp("(^|[^\\p{L}\\p{N}])" + quoted + "(?=$|[^\\p{L}\\p{N}])", "iu").test(source);
+  });
+}
+
 // Keep exactly one space after punctuation when more text follows,
 // except when the next character is a newline. Ellipses stay intact.
 export function reviewPunctuation(text) {
@@ -72,6 +83,10 @@ export function reviewPunctuation(text) {
 // Concatenate finalized segments, with sentence-initial casing.
 export function appendReviewedSegment(previous, processed, options = {}) {
   if (!processed) return previous;
+  // A standalone explicit stop closes the preceding segment, but cannot
+  // create duplicate punctuation when that segment already ends with it.
+  if (/^[.!?][\\s]*$/.test(processed) && previous.trimEnd().endsWith(processed.trim()))
+    return previous;
   const last = previous.trimEnd().slice(-1);
   const startsLine = /^[\r\n]/.test(processed);
   const startsPunct = /^[.,;:!?]/.test(processed);

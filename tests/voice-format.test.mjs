@@ -2,7 +2,7 @@ import {readFileSync} from "node:fs";
 import {test} from "node:test";
 import assert from "node:assert/strict";
 const source=readFileSync(new URL("../frontend/voice-format.js",import.meta.url),"utf8");
-const {cleanEdgeSegment,applyVoiceCommands,appendReviewedSegment,reviewPunctuation,isPunctuationOnly,stripEdgePunctuationAfterCommand}=
+const {cleanEdgeSegment,applyVoiceCommands,appendReviewedSegment,reviewPunctuation,isPunctuationOnly,stripEdgePunctuationAfterCommand,containsSpokenPunctuationCommand}=
   await import("data:text/javascript;base64,"+Buffer.from(source).toString("base64"));
 
 test("Edge cleanup before commands",()=>{
@@ -50,4 +50,17 @@ test("discard output containing only punctuation after substitutions",()=>{
   assert.equal(stripEdgePunctuationAfterCommand("ciao punto fermo?",commands),"ciao punto fermo");
   assert.equal(stripEdgePunctuationAfterCommand("ciao punto fermo.",commands),"ciao punto fermo");
   assert.equal(stripEdgePunctuationAfterCommand("ciao?",commands),"ciao?");
+});
+
+test("an isolated spoken period remains valid while an orphan sign does not",()=>{
+  const commands=[{t:"punto fermo",r:". "},{t:"punto interrogativo",r:"? "}];
+  assert.equal(containsSpokenPunctuationCommand("punto fermo",commands),true);
+  assert.equal(containsSpokenPunctuationCommand("punto fermo?",commands),true);
+  assert.equal(containsSpokenPunctuationCommand("?",commands),false);
+  assert.equal(containsSpokenPunctuationCommand("altro",commands),false);
+  const cleaned=cleanEdgeSegment(stripEdgePunctuationAfterCommand("punto fermo?",commands));
+  const result=applyVoiceCommands(cleaned,commands);
+  assert.equal(result.trim(),".");
+  assert.equal(appendReviewedSegment("Una frase",result),"Una frase.");
+  assert.equal(appendReviewedSegment("Una frase.",result),"Una frase.");
 });

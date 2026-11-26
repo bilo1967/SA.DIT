@@ -121,3 +121,12 @@
 - Quando Edge aggiunge `?`, `!` o `.` subito dopo un comando vocale esplicito
   di punteggiatura a fine segmento, quel segno terminale automatico viene eliminato
   prima della sostituzione, evitando la punteggiatura doppia.
+
+### Correzione dei comandi vocali isolati
+- Un segmento finale costituito solo da «punto fermo» è **valido**: chiude il
+  segmento precedente anche se il post-processing restituisce solo `.`.
+- Il filtro dei risultati di sola punteggiatura esclude soltanto quelli senza
+  un comando vocale di punteggiatura effettivamente pronunciato.
+- `punto fermo?` viene ripulito del segno aggiunto da Edge **prima** delle
+  sostituzioni; il risultato è un singolo punto esplicito. Il punto viene
+  deduplicato se il testo precedente termina già con lo stesso segno.

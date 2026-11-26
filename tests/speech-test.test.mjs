@@ -138,10 +138,14 @@ test("discard punctuation-only final results after commands and avoid double sto
     onTranscript:packet=>packets.push(packet),
   });
   speech.start();
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"ciao"}],{isFinal:true})]});
+  assert.equal(packets.at(-1).final,"Ciao");
   session.onresult({resultIndex:0,results:[Object.assign([{transcript:"punto fermo?"}],{isFinal:true})]});
-  assert.equal(packets.length,0);
-  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"ciao punto fermo?"}],{isFinal:true})]});
-  assert.equal(packets.length,1);
-  assert.equal(packets[0].final,"Ciao.");
+  assert.equal(packets.at(-1).final,"Ciao.");
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"punto fermo."}],{isFinal:true})]});
+  assert.equal(packets.at(-1).final,"Ciao.");
+  session.onresult({resultIndex:0,results:[Object.assign([{transcript:"?"}],{isFinal:true})]});
+  assert.equal(packets.at(-1).final,"Ciao.");
+  assert.equal(packets.length,2);
   speech.stop();
 });
