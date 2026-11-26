@@ -89,7 +89,7 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
             r === "#M" && cleaned.toLocaleLowerCase("it-IT").startsWith(t.toLocaleLowerCase("it-IT")));
           finalText = appendReviewedSegment(previous, processed, {forceUppercase});
           if (finalText !== previous) {
-            if (processed.trim()) log("Trascrizione: " + finalText.slice(previous.length).trimStart(), "", "transcript");
+            if (processed.trim()) log(finalText.slice(previous.length).trimStart(), "", "transcript");
             emit();
           }
         } else {
