@@ -55,7 +55,7 @@ export function stripEdgePunctuationAfterCommand(text, commands) {
 export function reviewPunctuation(text) {
   // Edge can put a full stop before a spoken "punto fermo"; avoid ". .".
   // Ellipses ("...") have no spaces and are preserved.
-  const normalized = text.replace(/(?<!\\.)\\.[ \\t]+\\.(?!\\.)/g, ".")
+  const normalized = text.replace(/(?<!\.)\.[ \t]+\.(?!\.)/g, ".")
     .replace(/[ \t]+([.,;:!?])/g, "$1")
     .replace(/([.,;:!?])[ \t]*/g, (match, punctuation, offset, source) => {
       const next = source[offset + match.length];
