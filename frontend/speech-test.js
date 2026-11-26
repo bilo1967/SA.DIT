@@ -5,6 +5,7 @@ export function initSpeechTest({ button, status, interim, log }) {
   let recognition = null;
   let active = false;
   let stopping = false;
+  let lastError = "";
 
   const display = (message) => { status.textContent = message; };
   const reset = () => {
@@ -46,7 +47,9 @@ export function initSpeechTest({ button, status, interim, log }) {
     session.maxAlternatives = 1;
     recognition = session;
     stopping = false;
-    button.disabled = true;
+    lastError = "";
+    button.disabled = false;
+    button.textContent = "Interrompi riconoscimento";
     display("Avvio del riconoscimento…");
 
     session.onstart = () => {
@@ -56,6 +59,9 @@ export function initSpeechTest({ button, status, interim, log }) {
       button.textContent = "Interrompi riconoscimento";
       display("Microfono attivo · ascolto in corso");
       log("Riconoscimento vocale avviato.", "it-IT, continuous=true, interimResults=true");
+    };
+    session.onaudiostart = () => {
+      if (recognition === session) log("Riconoscimento vocale: microfono acquisito.", "Evento audiostart");
     };
     session.onresult = event => {
       if (recognition !== session) return;
@@ -76,6 +82,7 @@ export function initSpeechTest({ button, status, interim, log }) {
     session.onerror = event => {
       if (recognition !== session) return;
       const code = event.error || "unknown";
+      lastError = code;
       log("Riconoscimento vocale: errore " + code + ".",
         event.message || "Controllare permessi microfono, runtime WebView2 e servizio online.", "error");
       display("Errore: " + code);
@@ -87,7 +94,7 @@ export function initSpeechTest({ button, status, interim, log }) {
       if (recognition !== session) return;
       recognition = null;
       reset();
-      display(stopping ? "Riconoscimento interrotto" : "Riconoscimento terminato");
+      display(lastError ? "Errore: " + lastError : stopping ? "Riconoscimento interrotto" : "Riconoscimento terminato");
       log("Riconoscimento vocale terminato.");
     };
     try {
