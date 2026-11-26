@@ -37,7 +37,10 @@ export function reviewPunctuation(text) {
     .replace(/([.,;:!?])[ \t]*(?=[^\r\n])/g, (match,punctuation,offset,all) => {
       if (punctuation === "." && (all[offset-1] === "." || all[offset+match.length] === ".")) return match;
       return punctuation + " ";
-    }).replace(/([.,;:!?])[ \t]+(?=\r?\n)/g, "$1");
+    }).replace(/([.,;:!?])[ \t]+(?=\r?\n)/g, "$1")
+    // Capitalize words after a sentence boundary within the same Edge segment.
+    .replace(/([.!?][ \t]+)([a-zà-ÿ])/gi,
+      (_, punctuation, letter) => punctuation + letter.toLocaleUpperCase("it-IT"));
 }
 
 // Concatenate finalized segments, with sentence-initial casing.
