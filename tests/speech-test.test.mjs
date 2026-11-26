@@ -3,8 +3,11 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const source = readFileSync(new URL("../frontend/speech-test.js", import.meta.url), "utf8");
-const { initSpeechTest } = await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
+const asModule = content => "data:text/javascript;base64," + Buffer.from(content).toString("base64");
+const formatter = asModule(readFileSync(new URL("../frontend/voice-format.js", import.meta.url), "utf8"));
+const source = readFileSync(new URL("../frontend/speech-test.js", import.meta.url), "utf8")
+  .replace('"./voice-format.js"', '"' + formatter + '"');
+const { initSpeechTest } = await import(asModule(source));
 
 function createUI() {
   const button = { disabled: false, textContent: "", onclick: null };
@@ -51,5 +54,30 @@ test("uses default microphone, captures interim and final text, and aborts on st
   ui.button.onclick();
   assert.equal(instance.aborted, true);
   assert.equal(speech.active, false);
-  assert.equal(ui.button.textContent, "Avvia riconoscimento (test)");
+  assert.equal(ui.button.textContent, "Avvia riconoscimento");
+});
+
+test("sends idempotent cumulative snapshots and preserves newlines", () => {
+  let instance;
+  class MockRecognition {
+    constructor() { instance = this; }
+    start() { this.onstart?.(); }
+    abort() { this.onend?.(); }
+  }
+  globalThis.window = { SpeechRecognition: MockRecognition };
+  const ui = createUI();
+  const payloads = [];
+  const speech = initSpeechTest({
+    ...ui,
+    getCommands: () => [{t:"a capo",r:"\n"}, {t:"virgola",r:", "}],
+    onTranscript: item => payloads.push(item),
+  });
+  speech.start();
+  instance.onresult({resultIndex:0,results:[
+    Object.assign([{transcript:"ciao a capo mondo"}],{isFinal:true}),
+  ]});
+  assert.equal(payloads.at(-1).final,"Ciao\n mondo");
+  assert.equal(payloads.at(-1).interim,"");
+  assert.equal(payloads.at(-1).revision,1);
+  speech.stop();
 });

@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: "22"
       - name: Test projection controls
-        run: node --test tests/projection-crop.test.mjs tests/projection-window.test.mjs tests/speech-test.test.mjs
+        run: node --test tests/projection-crop.test.mjs tests/projection-window.test.mjs tests/speech-test.test.mjs tests/voice-format.test.mjs
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.x"
