@@ -12,8 +12,10 @@
    `getDisplayMedia`; la Sala trasmette il microfono via WebRTC e riceve il video.
    La finestra di proiezione usa il collegamento WebRTC locale esistente.
 2. **Riconoscimento integrato**: l'Interprete usa `SpeechRecognition` nella WebView2;
-   la Sala riceve esclusivamente messaggi testuali tramite DataConnection e li
-   riproduce nella finestra di proiezione. Non esistono flussi audio o video.
+   la Sala trasmette **sempre il proprio microfono all'Interprete** via WebRTC
+   (audio unidirezionale Sala → Interprete) e riceve messaggi testuali tramite
+   DataConnection per la proiezione. Nella modalità integrata non esiste un
+   flusso video: è il testo a sostituire il video.
    La modalità viene annunciata all'apertura della connessione dati.
    Lo stesso PIN identifica entrambe le modalità.
 
@@ -43,7 +45,9 @@
 - Risultati parziali distinti da quelli finali; log compatto e colorato.
 - Non salvare trascrizioni in file; il DataChannel resta confinato alla sessione.
 - Interprete e Sala devono appartenere alla stessa modalità di protocollo:
-  l'evento `session-mode` decide se la Sala deve avviare WebRTC.
+  l'evento `session-mode` decide se la Sala offre solo audio oppure audio
+  più canale video. La richiesta di autorizzazione microfono è necessaria
+  **in entrambe** le modalità.
 - Il PIN PeerJS è un identificatore temporaneo, non autenticazione forte.
 - L'overlay trasparente è previsto solo per la modalità integrata;
   va verificato sui runtime Windows in uso.
@@ -51,5 +55,6 @@
 ## Verifiche
 - Test automatici JS per post-processing, modalità e riconnessione.
 - Test Go del dizionario; build GitHub Actions sul branch sperimentale.
-- Prova manuale su due PC: modalità esterna invariata; modalità interna,
-  newline, avvio/arresto, ricollegamento dopo `network`, proiezione.
+- Prova manuale su due PC: verifica audio Sala → Interprete in entrambe le
+  modalità; modalità esterna invariata; modalità interna, newline,
+  avvio/arresto, ricollegamento dopo `network`, proiezione.

@@ -181,8 +181,11 @@ function attachData(connection) {
       if (payload.mode !== "external" && payload.mode !== "integrated") return;
       roomMode = payload.mode;
       log(roomMode === "integrated" ? "Modalità riconoscimento integrato: ricezione testo." : "Modalità riconoscimento esterno: ricezione video.");
-      if (roomMode === "external") startRoomMedia().catch(e => { disconnect(false); failure("Impossibile avviare il collegamento multimediale.",e); });
-      else {
+      startRoomMedia().catch(e => {
+        disconnect(false);
+        failure("Impossibile inviare l'audio della Sala.",e);
+      });
+      if (roomMode === "integrated") {
         $("textTransparencyOption").classList.remove("hidden");
         projectionEmit("text-mode", {mode:"integrated"});
         startProjection().then(() => projectionEmit("text-mode", {mode:"integrated"}))
@@ -420,7 +423,7 @@ async function startInterpreter() {
   }
 }
 
-// Integrated mode uses only PeerJS data messages; neither party starts a media call.
+// Integrated mode publishes text while still receiving the floor audio from the room.
 function startIntegrated() {
   if (busy) return;
   if (!speechTest.supported) {
@@ -440,7 +443,31 @@ function startIntegrated() {
       if (data) { incoming.close(); return; }
       attachData(incoming);
     });
-    peer.on("call", incoming => incoming.close());
+    peer.on("call", incoming => {
+      if (media) { incoming.close(); return; }
+      media = incoming;
+      // An audio-only offer is sufficient: no outgoing media from the interpreter.
+      incoming.answer();
+      observeMediaConnection(incoming, "Interprete (audio Sala)");
+      incoming.on("stream", stream => {
+        if (media !== incoming) return;
+        $("incomingAudio").srcObject = stream;
+        chooseAudioSink($("deviceSelect").value);
+        $("incomingAudio").play().catch(error =>
+          log("Premi sulla finestra per autorizzare l'ascolto.", error.message));
+        log("Audio della sala ricevuto.");
+      });
+      incoming.on("error", error => {
+        if (media !== incoming) return;
+        disconnect(false);
+        failure("Il collegamento audio con la Sala si è interrotto.", error);
+      });
+      incoming.on("close", () => {
+        if (media !== incoming) return;
+        disconnect(false);
+        log("La Sala si è scollegata: audio interrotto.");
+      });
+    });
     peer.on("open", () => {
       $("startIntegrated").disabled = false;
       $("startIntegrated").textContent = "Disconnettiti";
@@ -504,20 +531,20 @@ async function joinRoom() {
   }
 }
 
-// Create the legacy audio/video call only after the Interpreter announces external mode.
+// Always send room audio; reserve a video m-line only for external mode.
 async function startRoomMedia() {
-  if (role !== "room" || roomMode !== "external" || roomMediaStarted) return;
+  if (role !== "room" || !["external", "integrated"].includes(roomMode) || roomMediaStarted) return;
   roomMediaStarted = true;
   const activePeer = peer;
   const id = roomPeerId;
   const stream = await selectedAudio();
-  if (peer !== activePeer || roomMode !== "external") {
+  if (peer !== activePeer || !["external", "integrated"].includes(roomMode)) {
     stream.getTracks().forEach(track => track.stop());
     return;
   }
   localStream = stream;
-  reserveIncomingVideoChannel(localStream);
-  log("Sala: invio offerta audio/video all'Interprete.",
+  if (roomMode === "external") reserveIncomingVideoChannel(localStream);
+  log("Sala: invio offerta multimediale all'Interprete.",
     "Audio: " + localStream.getAudioTracks().length + " · Video: " + localStream.getVideoTracks().length);
   media = peer.call(id, localStream);
   if (!media) throw new Error("Non riesco a iniziare lo scambio multimediale.");
