@@ -41,6 +41,17 @@ const projectionWindow = initProjectionWindow({
 // Keep the full log in the DOM; display only user-facing events.
 const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
+  // Edge can return punctuation in a separate final segment; append it to
+  // the previous visible transcription instead of making a dot-only log row.
+  if (level === "transcript") {
+    const content = message.replace(/^Trascrizione:\s*/, "");
+    if (!content.trim()) return;
+    if (/^[.,;:!?…]+$/.test(content.trim())) {
+      const entries = $("log").querySelectorAll(".log-entry.transcript");
+      const previous = entries[entries.length - 1]?.querySelector(".message");
+      if (previous) { previous.textContent += content.trim(); return; }
+    }
+  }
   const item = document.createElement("div");
   const visible = level === "error" || level === "transcript" || level === "interim" ||
     (level !== "diagnostic" && essentialLog.test(message));

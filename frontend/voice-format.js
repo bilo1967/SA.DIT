@@ -16,8 +16,10 @@ export function applyVoiceCommands(raw, commands) {
     const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     text = text.replace(new RegExp(escaped, "gi"), () => r);
   }
-  // Leave Edge/Chrome punctuation untouched; only act on explicit voice commands.
-  text = text.replace(/#M\\s*([a-zà-ÿ])/gi, (_, letter) => letter.toUpperCase());
+  // Edge/Chrome punctuation is authoritative: never synthesize punctuation.
+  // Trim only spaces immediately preceding explicitly requested line breaks.
+  text = text.replace(/[ \t]+\n/g, "\n");
+  text = text.replace(/#M\s*([a-zà-ÿ])/gi, (_, letter) => letter.toUpperCase());
   text = text.replace(/^(\\s*)([a-zà-ÿ])/i, (_, spaces, letter) => spaces + letter.toUpperCase());
   return text;
 }
