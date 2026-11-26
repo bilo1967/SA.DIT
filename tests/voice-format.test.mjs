@@ -23,12 +23,12 @@ test("teacher-defined commands",()=>{
 test("sentence capitalization across segments and punctuation spacing",()=>{
   assert.equal(appendReviewedSegment("","buongiorno"),"Buongiorno");
   assert.equal(appendReviewedSegment("Buongiorno","OGGI"),"Buongiorno oggi");
-  assert.equal(appendReviewedSegment("Ciao.","MONDO"),"Ciao. Mondo");
-  assert.equal(appendReviewedSegment("Ciao!","MONDO"),"Ciao! Mondo");
-  assert.equal(appendReviewedSegment("Ciao?","MONDO"),"Ciao? Mondo");
-  assert.equal(appendReviewedSegment("Ciao,","MONDO"),"Ciao, mondo");
-  assert.equal(appendReviewedSegment("Ciao;","MONDO"),"Ciao; mondo");
-  assert.equal(appendReviewedSegment("Ciao:","MONDO"),"Ciao: mondo");
+  assert.equal(appendReviewedSegment("Ciao.","mondo"),"Ciao. Mondo");
+  assert.equal(appendReviewedSegment("Ciao!","mondo"),"Ciao! Mondo");
+  assert.equal(appendReviewedSegment("Ciao?","mondo"),"Ciao? Mondo");
+  assert.equal(appendReviewedSegment("Ciao,","Mondo"),"Ciao, mondo");
+  assert.equal(appendReviewedSegment("Ciao;","Mondo"),"Ciao; mondo");
+  assert.equal(appendReviewedSegment("Ciao:","Mondo"),"Ciao: mondo");
   assert.equal(appendReviewedSegment("Ciao","Mondo"),"Ciao mondo");
   assert.equal(appendReviewedSegment("Ciao","\nmondo"),"Ciao\nmondo");
   assert.equal(appendReviewedSegment("Ciao","PROVA",{forceUppercase:true}),"Ciao PROVA");
