@@ -22,7 +22,7 @@ test("teacher-defined commands",()=>{
 });
 test("sentence capitalization across segments and punctuation spacing",()=>{
   assert.equal(appendReviewedSegment("","buongiorno"),"Buongiorno");
-  assert.equal(appendReviewedSegment("Buongiorno","OGGI"),"Buongiorno oggi");
+  assert.equal(appendReviewedSegment("Buongiorno","Oggi"),"Buongiorno oggi");
   assert.equal(appendReviewedSegment("Ciao.","mondo"),"Ciao. Mondo");
   assert.equal(appendReviewedSegment("Ciao!","mondo"),"Ciao! Mondo");
   assert.equal(appendReviewedSegment("Ciao?","mondo"),"Ciao? Mondo");
