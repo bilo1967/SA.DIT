@@ -63,3 +63,11 @@
 - Interprete: Setup distingue cuffie e microfono; `interpreterMicrophoneId` è salvato in `preferences.json`.
 - Riconoscimento integrato: testo provvisorio e definitivo solo nel registro; errori di rete recuperabili nascosti, non quelli irreversibili.
 - I comandi vocali restano in `voice-commands.json` accanto all'eseguibile ove scrivibile.
+
+## Proiezione testuale e trasparenza
+- Nella modalità testo i controlli Crop sono nascosti; i pulsanti ± regolano il font (16–96 px).
+- La finestra nativa usa sfondo RGBA trasparente. Dopo il cambio di cornice viene
+  ripristinato esplicitamente il colore di sfondo con alpha 0; questo è un
+  tentativo di aggirare il comportamento WebView2, da confermare su Windows.
+- Non ricreare automaticamente la proiezione durante una sessione: farebbe
+  perdere la connessione video della modalità esterna.

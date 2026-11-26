@@ -45,6 +45,7 @@ func (s *ProjectionService) openLocked() {
 		AlwaysOnTop: false,
 		// Transparent native surface; external/video mode remains opaque via CSS.
 		BackgroundType: application.BackgroundTypeTransparent,
+		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
 		Frameless: s.hideTitlebar,
 	})
 	// The system close button also hides; actual app shutdown must still close it.
@@ -85,7 +86,10 @@ func (s *ProjectionService) SetTitlebarHidden(hidden bool) {
 	defer s.mu.Unlock()
 	s.hideTitlebar = hidden
 	if screen, ok := s.app.Window.GetByName("projection"); ok {
+		// Wails' live SetFrameless changes native Windows styles. Reset the
+		// transparent surface colour after the frame transition to restore alpha.
 		screen.SetFrameless(hidden)
+		screen.SetBackgroundColour(application.NewRGBA(0, 0, 0, 0))
 		screen.ExecJS(fmt.Sprintf("document.documentElement.classList.toggle('frameless', %t)", hidden))
 	}
 }

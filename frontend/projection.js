@@ -9,6 +9,13 @@ const finalTranscript = document.getElementById("finalTranscript");
 const interimTranscript = document.getElementById("interimTranscript");
 let displayMode = "external";
 let lastTextRevision = -1;
+let subtitleFontSize = 36;
+function resizeSubtitle(delta) {
+  subtitleFontSize = Math.min(96,Math.max(16,subtitleFontSize + delta));
+  textProjection.style.setProperty("--subtitle-size",subtitleFontSize+"px");
+}
+document.getElementById("fontDecrease").onclick = () => resizeSubtitle(-4);
+document.getElementById("fontIncrease").onclick = () => resizeSubtitle(4);
 const projectionCrop = initProjectionCrop(video);
 // A frameless projection exposes a hover-only native drag handle.
 Call.ByName("main.ProjectionService.IsTitlebarHidden")
@@ -44,7 +51,7 @@ function stop() {
   textProjection.style.display = "none";
   finalTranscript.textContent = "";
   interimTranscript.textContent = "";
-  document.documentElement.classList.remove("text-transparent");
+  document.documentElement.classList.remove("text-transparent","text-mode");
   message("In attesa dei sottotitoli dell'interprete…");
 }
 
@@ -61,6 +68,7 @@ Events.On("sadit:projection:text-mode", event => {
   video.style.display = "none";
   placeholder.style.display = "none";
   textProjection.style.display = "block";
+  document.documentElement.classList.add("text-mode");
   document.documentElement.classList.toggle("text-transparent", !!payload.transparent);
 });
 Events.On("sadit:projection:transcript", event => {
