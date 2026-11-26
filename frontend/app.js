@@ -46,10 +46,16 @@ function log(message, technical = "", level = "info") {
   if (level === "transcript") {
     const content = message.replace(/^Trascrizione:\s*/, "");
     if (!content.trim()) return;
-    if (/^[.,;:!?…]+$/.test(content.trim())) {
+    const leadingPunctuation = content.trimStart().match(/^([.,;:!?…]+)(?=\\s|$)/);
+    if (leadingPunctuation) {
       const entries = $("log").querySelectorAll(".log-entry.transcript");
       const previous = entries[entries.length - 1]?.querySelector(".message");
-      if (previous) { previous.textContent += content.trim(); return; }
+      if (previous) {
+        previous.textContent += leadingPunctuation[1];
+        const remainder = content.trimStart().slice(leadingPunctuation[1].length).trimStart();
+        if (!remainder) return;
+        message = "Trascrizione: " + remainder;
+      }
     }
   }
   const item = document.createElement("div");
