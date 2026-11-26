@@ -40,7 +40,9 @@ export function reviewPunctuation(text) {
     }).replace(/([.,;:!?])[ \t]+(?=\r?\n)/g, "$1")
     // Capitalize words after a sentence boundary within the same Edge segment.
     .replace(/([.!?][ \t]+)([a-zà-ÿ])/gi,
-      (_, punctuation, letter) => punctuation + letter.toLocaleUpperCase("it-IT"));
+      (match, punctuation, letter, offset, whole) =>
+        punctuation[0] === "." && whole[offset - 1] === "."
+          ? match : punctuation + letter.toLocaleUpperCase("it-IT"));
 }
 
 // Concatenate finalized segments, with sentence-initial casing.
