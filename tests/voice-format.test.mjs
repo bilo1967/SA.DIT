@@ -1,66 +1,62 @@
 import {readFileSync} from "node:fs";
 import {test} from "node:test";
 import assert from "node:assert/strict";
-const source=readFileSync(new URL("../frontend/voice-format.js",import.meta.url),"utf8");
-const {cleanEdgeSegment,applyVoiceCommands,appendReviewedSegment,reviewPunctuation,isPunctuationOnly,stripEdgePunctuationAfterCommand,containsSpokenPunctuationCommand}=
-  await import("data:text/javascript;base64,"+Buffer.from(source).toString("base64"));
+const source = readFileSync(new URL("../frontend/voice-format.js", import.meta.url), "utf8");
+const {cleanEdgeSegment, applyVoiceCommands, appendReviewedSegment, reviewPunctuation, isPunctuationOnly} =
+  await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
+const rules = [
+  {t:"punto fermo",r:". "}, {t:"punto interrogativo",r:"? "},
+  {t:"punto esclamativo",r:"! "}, {t:"virgola",r:", "},
+  {t:"punto e virgola",r:"; "}, {t:"due punti",r:": "},
+  {t:"a capo",r:"\n"}, {t:"lettera maiuscola",r:"#M"},
+  {t:"puntini di sospensione",r:"…"},
+];
+const process = raw => applyVoiceCommands(cleanEdgeSegment(raw), rules);
 
-test("Edge cleanup before commands",()=>{
-  assert.equal(cleanEdgeSegment("Buongiorno."),"Buongiorno");
-  assert.equal(cleanEdgeSegment("punto fermo."),"punto fermo");
-  for(const item of ["",".","!","?",",",";",":","   "]) assert.equal(cleanEdgeSegment(item),"");
-  assert.equal(cleanEdgeSegment("Ciao..."),"Ciao...");
-});
-test("teacher-defined commands",()=>{
-  const rules=[{t:"punto fermo",r:". "},{t:"virgola",r:", "},{t:"a capo",r:"\n"},
-    {t:"lettera maiuscola",r:"#M"}];
-  assert.equal(applyVoiceCommands("ciao punto fermo",rules),"ciao. ");
-  assert.equal(applyVoiceCommands("ciao virgola mondo",rules),"ciao,  mondo");
-  assert.equal(applyVoiceCommands("ciao a capo mondo",rules),"ciao\n mondo");
-  assert.equal(applyVoiceCommands("lettera maiuscola prova",rules),"Prova");
-  assert.equal(applyVoiceCommands("a+b",[{t:"a+b",r:"x"}]),"x");
-});
-test("sentence capitalization across segments and punctuation spacing",()=>{
-  assert.equal(appendReviewedSegment("","buongiorno"),"Buongiorno");
-  assert.equal(appendReviewedSegment("Buongiorno","Oggi"),"Buongiorno oggi");
-  assert.equal(appendReviewedSegment("Ciao.","mondo"),"Ciao. Mondo");
-  assert.equal(appendReviewedSegment("Ciao!","mondo"),"Ciao! Mondo");
-  assert.equal(appendReviewedSegment("Ciao?","mondo"),"Ciao? Mondo");
-  assert.equal(appendReviewedSegment("Ciao,","Mondo"),"Ciao, mondo");
-  assert.equal(appendReviewedSegment("Ciao;","Mondo"),"Ciao; mondo");
-  assert.equal(appendReviewedSegment("Ciao:","Mondo"),"Ciao: mondo");
-  assert.equal(appendReviewedSegment("Ciao","Mondo"),"Ciao mondo");
-  assert.equal(appendReviewedSegment("Ciao","\nmondo"),"Ciao\nmondo");
-  assert.equal(appendReviewedSegment("Ciao","PROVA",{forceUppercase:true}),"Ciao PROVA");
-  assert.equal(reviewPunctuation("ciao,mondo;oggi:sera!bene?domani."),"ciao, mondo; oggi: sera! Bene? Domani.");
-  assert.equal(reviewPunctuation("ciao,\nmondo"),"ciao,\nmondo");
-  assert.equal(reviewPunctuation("ciao... mondo"),"ciao... mondo");
-  assert.equal(reviewPunctuation("ciao. ."),"ciao.");
-  assert.equal(appendReviewedSegment("","ciao. mondo"),"Ciao. Mondo");
-  assert.equal(appendReviewedSegment("","ciao! mondo"),"Ciao! Mondo");
-  assert.equal(appendReviewedSegment("","ciao? mondo"),"Ciao? Mondo");
+test("A: remove ALL strong trailing punctuation, never internal punctuation", () => {
+  for (const [input, expected] of [
+    ["Buongiorno.", "Buongiorno"], ["Come stai?", "Come stai"],
+    ["Attenzione!!!", "Attenzione"], ["Ciao?! . ", "Ciao"],
+    ["Ciao, mondo.", "Ciao, mondo"], ["Ciao. Come va?", "Ciao. Come va"],
+    ["Punto fermo?", "Punto fermo"], ["", ""], ["?!", ""],
+    [",", ""], ["…", ""], [" . ? ! ", ""],
+  ]) assert.equal(cleanEdgeSegment(input), expected, input);
+  assert.equal(isPunctuationOnly("ciao."), false);
 });
 
-test("discard output containing only punctuation after substitutions",()=>{
-  for(const value of ["", ".", ". ?", "?!", " : , ! ", "…"]) assert.equal(isPunctuationOnly(value),true);
-  assert.equal(isPunctuationOnly("ciao."),false);
-  const commands=[{t:"punto fermo",r:". "},{t:"punto interrogativo",r:"? "}];
-  assert.equal(isPunctuationOnly(applyVoiceCommands("punto fermo",commands)),true);
-  assert.equal(isPunctuationOnly(applyVoiceCommands("punto interrogativo",commands)),true);
-  assert.equal(stripEdgePunctuationAfterCommand("ciao punto fermo?",commands),"ciao punto fermo");
-  assert.equal(stripEdgePunctuationAfterCommand("ciao punto fermo.",commands),"ciao punto fermo");
-  assert.equal(stripEdgePunctuationAfterCommand("ciao?",commands),"ciao?");
+test("B: explicit punctuation wins over Edge on both sides", () => {
+  for (const [input, expected] of [
+    ["ciao, virgola mondo.", "ciao, mondo"],
+    ["ciao, punto fermo mondo.", "ciao. mondo"],
+    ["ciao? punto fermo.", "ciao."],
+    ["ciao, punto esclamativo!", "ciao!"],
+    ["ciao; punto interrogativo, come stai?", "ciao? come stai"],
+    ["punto fermo?", "."],
+    ["punto interrogativo!", "?"],
+    ["punto esclamativo.", "!"],
+    ["virgola,", ","],
+    ["ciao punto fermo, poi", "ciao. poi"],
+    ["ciao punto fermo punto interrogativo", "ciao. ?"],
+  ]) assert.equal(process(input), expected, input);
 });
 
-test("an isolated spoken period remains valid while an orphan sign does not",()=>{
-  const commands=[{t:"punto fermo",r:". "},{t:"punto interrogativo",r:"? "}];
-  assert.equal(containsSpokenPunctuationCommand("punto fermo",commands),true);
-  assert.equal(containsSpokenPunctuationCommand("punto fermo?",commands),true);
-  assert.equal(containsSpokenPunctuationCommand("?",commands),false);
-  assert.equal(containsSpokenPunctuationCommand("altro",commands),false);
-  const cleaned=cleanEdgeSegment(stripEdgePunctuationAfterCommand("punto fermo?",commands));
-  const result=applyVoiceCommands(cleaned,commands);
-  assert.equal(result.trim(),".");
-  assert.equal(appendReviewedSegment("Una frase",result),"Una frase.");
-  assert.equal(appendReviewedSegment("Una frase.",result),"Una frase.");
+test("B: non-conventional symbols, newlines, #M and literal keywords", () => {
+  assert.equal(process("ciao puntini di sospensione."), "ciao …");
+  assert.equal(process("ciao a capo mondo."), "ciao \n mondo");
+  assert.equal(process("lettera maiuscola prova."), "Prova");
+  assert.equal(applyVoiceCommands("a+b", [{t:"a+b",r:"x"}]), "x");
+  assert.equal(applyVoiceCommands("capolinea", [{t:"a capo",r:"\n"}]), "capolinea");
+});
+
+test("C: normalize spacing, newlines, capitals and cumulative segments", () => {
+  assert.equal(reviewPunctuation("ciao,mondo;oggi:sera!bene?domani."), "ciao, mondo; oggi: sera! Bene? Domani.");
+  assert.equal(reviewPunctuation("ciao,\n mondo"), "ciao,\nmondo");
+  assert.equal(appendReviewedSegment("", process("ciao.")), "Ciao");
+  assert.equal(appendReviewedSegment("Ciao", process("punto fermo?")), "Ciao.");
+  assert.equal(appendReviewedSegment("Ciao.", process("punto fermo?")), "Ciao.");
+  assert.equal(appendReviewedSegment("Ciao.", process("mondo.")), "Ciao. Mondo");
+  assert.equal(appendReviewedSegment("Ciao,", process("Mondo.")), "Ciao, mondo");
+  assert.equal(appendReviewedSegment("Ciao", process("Oggi.")), "Ciao oggi");
+  assert.equal(appendReviewedSegment("Ciao", process("a capo mondo.")), "Ciao\nmondo");
+  assert.equal(appendReviewedSegment("Ciao", "PROVA", {forceUppercase:true}), "Ciao PROVA");
 });

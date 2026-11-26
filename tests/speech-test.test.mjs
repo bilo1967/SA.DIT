@@ -76,7 +76,7 @@ test("sends idempotent cumulative snapshots and preserves newlines", () => {
   instance.onresult({resultIndex:0,results:[
     Object.assign([{transcript:"ciao a capo mondo"}],{isFinal:true}),
   ]});
-  assert.equal(payloads.at(-1).final,"Ciao\n mondo");
+  assert.equal(payloads.at(-1).final,"Ciao\nmondo");
   assert.equal("interim" in payloads.at(-1),false);
   assert.equal(payloads.at(-1).revision,1);
   speech.stop();
@@ -147,5 +147,28 @@ test("discard punctuation-only final results after commands and avoid double sto
   session.onresult({resultIndex:0,results:[Object.assign([{transcript:"?"}],{isFinal:true})]});
   assert.equal(packets.at(-1).final,"Ciao.");
   assert.equal(packets.length,2);
+  speech.stop();
+});
+
+
+test("integrated recognizer removes strong Edge endings and preserves explicit punctuation", () => {
+  let session;
+  class MockRecognition {
+    constructor(){session=this;}
+    start(){this.onstart?.();}
+    abort(){this.onend?.();}
+  }
+  globalThis.window={SpeechRecognition:MockRecognition};
+  const packets=[];
+  const speech=initSpeechTest({...createUI(),
+    getCommands:()=>[{t:"punto fermo",r:". "},{t:"virgola",r:", "}],
+    onTranscript:packet=>packets.push(packet),
+  });
+  speech.start();
+  for (const raw of ["prima.", "seconda?", "virgola,", "terza punto fermo!"]) {
+    session.onresult({resultIndex:0,results:[Object.assign([{transcript:raw}],{isFinal:true})]});
+  }
+  assert.equal(packets.at(-1).final, "Prima seconda, terza.");
+  assert.equal(packets.length,4);
   speech.stop();
 });

@@ -1,103 +1,99 @@
-// DIT.tafono-compatible voice keyword processing, without TinyMCE or jQuery.
-// Rules are applied in stored order, case-insensitively, on final text only.
+// Deterministic processing of final Web Speech segments.
+// A: clean Edge output; B: protected substitutions; C: normalize cumulative text.
+const STRONG_END = /[.!?]+[ \t]*$/u;
+const PUNCT_ONLY = /^[\p{P}\p{S}\s]+$/u;
+const EXPLICIT_PUNCT = /^[.,;:!?]$/u;
+const MARK_START = "\uE000";
+const MARK_END = "\uE001";
+
 export function normalizeVoiceCommands(input) {
   if (!Array.isArray(input)) throw new TypeError("Comandi vocali non validi");
-  return input.map(item => ({
-    t: String(item.t ?? ""),
-    r: String(item.r ?? ""),
-  }));
+  return input.map(item => ({t: String(item.t ?? ""), r: String(item.r ?? "")}));
 }
 
-// Reject output consisting solely of punctuation, symbols or whitespace.
 export function isPunctuationOnly(text) {
   const value = String(text ?? "").trim();
-  return !value || /^[\p{P}\p{S}\s]+$/u.test(value);
+  return !value || PUNCT_ONLY.test(value);
 }
 
+// A. A final strong sign belongs to Edge, not the interpreter. Remove all of
+// them, including repeated signs. Never apply this cleanup after substitutions.
+export function cleanEdgeSegment(raw) {
+  let text = String(raw ?? "").trim();
+  while (STRONG_END.test(text)) text = text.replace(STRONG_END, "").trimEnd();
+  return isPunctuationOnly(text) ? "" : text;
+}
+
+function quoteRegExp(text) {
+  return text.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&");
+}
+
+// B. Protect explicit punctuation before resolving conflicts. Whitespace in
+// replacement values is ignored only for recognizing conventional signs.
+// Other replacements (newlines, #M, typographic symbols) remain unchanged.
 export function applyVoiceCommands(raw, commands) {
   let text = String(raw ?? "");
-  for (const {t, r} of commands) {
+  const tokens = [];
+  const rules = normalizeVoiceCommands(commands);
+  for (const {t, r} of rules) {
     if (!t.trim()) continue;
-    // Treat a spoken phrase literally, unlike the historical regex-based editor.
-    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const prefix = /^[.,;:!?]/.test(r) ? "[ \\t]*" : "";
-    text = text.replace(new RegExp(prefix + escaped, "gi"), () => r);
-  }
-  text = text.replace(/[ \t]+\n/g, "\n");
-  text = text.replace(/#M\s*([a-zà-ÿ])/gi, (_, letter) => letter.toLocaleUpperCase("it-IT"));
-  return text;
-}
-
-// Remove only Edge's automatically appended single full stop, not ellipses.
-export function cleanEdgeSegment(raw) {
-  const text = String(raw ?? "").trim();
-  if (!text || /^\p{P}$/u.test(text)) return "";
-  if (text.endsWith(".") && !text.endsWith("..")) return text.slice(0,-1).trimEnd();
-  return text;
-}
-
-// Edge may add sentence punctuation after a spoken punctuation command.
-// Remove that terminal automatic sign before applying the substitution.
-// Only consider configured commands that produce a punctuation sign.
-export function stripEdgePunctuationAfterCommand(text, commands) {
-  const value = String(text ?? "");
-  for (const {t, r} of commands) {
-    if (!t.trim() || !/^[.!?,;:]/.test(r.trim())) continue;
-    const quoted = t.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&");
-    const suffix = new RegExp("(?:^|\\s)" + quoted + "\\s*[.!?]\\s*$", "i");
-    if (suffix.test(value)) return value.replace(/[.!?]\s*$/, "");
-  }
-  return value;
-}
-
-// A punctuation-only result is valid when it came from an explicitly spoken
-// command (e.g. "punto fermo" in a separate final Edge segment).
-export function containsSpokenPunctuationCommand(text, commands) {
-  const source = String(text ?? "");
-  return commands.some(({t, r}) => {
-    if (!t?.trim() || !/^[.,;:!?…]/.test(String(r ?? "").trim())) return false;
-    const quoted = t.replace(/[.*+?^$()|[\]{}\\]/g, "\\// Keep exactly one space after punctuation when more text follows,");
-    return new RegExp("(^|[^\\p{L}\\p{N}])" + quoted + "(?=$|[^\\p{L}\\p{N}])", "iu").test(source);
-  });
-}
-
-// Keep exactly one space after punctuation when more text follows,
-// except when the next character is a newline. Ellipses stay intact.
-export function reviewPunctuation(text) {
-  // Edge can put a full stop before a spoken "punto fermo"; avoid ". .".
-  // Ellipses ("...") have no spaces and are preserved.
-  const normalized = text.replace(/(?<!\.)\.[ \t]+\.(?!\.)/g, ".")
-    .replace(/[ \t]+([.,;:!?])/g, "$1")
-    .replace(/([.,;:!?])[ \t]*/g, (match, punctuation, offset, source) => {
-      const next = source[offset + match.length];
-      if (!next || next === "\r" || next === "\n") return punctuation;
-      if (punctuation === "." && (source[offset - 1] === "." || next === ".")) return match;
-      return punctuation + " ";
+    const punctuation = r.trim();
+    const isExplicit = EXPLICIT_PUNCT.test(punctuation);
+    const keyword = new RegExp("(?<![\\p{L}\\p{N}])" + quoteRegExp(t) +
+      "(?![\\p{L}\\p{N}])", "giu");
+    text = text.replace(keyword, () => {
+      if (!isExplicit) return r;
+      const token = MARK_START + tokens.length + MARK_END;
+      tokens.push(punctuation);
+      return token;
     });
-  return normalized.replace(/([.!?][ \t]+)([a-zà-ÿ])/gi,
-    (match, punctuation, letter, offset, source) =>
-      punctuation[0] === "." && source[offset - 1] === "."
-        ? match : punctuation + letter.toLocaleUpperCase("it-IT"));
+  }
+  // Edge punctuation directly adjacent to an explicit sign loses precedence.
+  // Only original punctuation is consumed: protected tokens are never erased.
+  // Do not cross newline boundaries (explicit formatting commands).
+  for (let i = 0; i < tokens.length; i++) {
+    const marker = MARK_START + i + MARK_END;
+    const quoted = quoteRegExp(marker);
+    text = text.replace(new RegExp("[\\p{P}\\p{S}]+[ \\t]*" + quoted, "gu"), marker);
+    text = text.replace(new RegExp(quoted + "[ \\t]*[\\p{P}\\p{S}]+", "gu"), marker);
+  }
+  for (let i = 0; i < tokens.length; i++)
+    text = text.replaceAll(MARK_START + i + MARK_END, tokens[i]);
+
+  return text.replace(/#M[ \t]*([a-zà-ÿ])/giu,
+    (_, letter) => letter.toLocaleUpperCase("it-IT"));
 }
 
-// Concatenate finalized segments, with sentence-initial casing.
+// C. Whitespace and sentence-initial case are normalized after substitutions.
+export function reviewPunctuation(value) {
+  let text = String(value ?? "").replace(/\r\n?/g, "\n");
+  text = text.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n");
+  text = text.replace(/[ \t]+([.,;:!?])/g, "$1");
+  text = text.replace(/([.,;:!?])[ \t]*(?=[^\s.,;:!?])/g, "$1 ");
+  text = text.replace(/[ \t]{2,}/g, " ");
+  text = text.replace(/([.!?][ \t]+)([a-zà-ÿ])/giu,
+    (_, punctuation, letter) => punctuation + letter.toLocaleUpperCase("it-IT"));
+  return text;
+}
+
 export function appendReviewedSegment(previous, processed, options = {}) {
   if (!processed) return previous;
-  // A standalone explicit stop closes the preceding segment, but cannot
-  // create duplicate punctuation when that segment already ends with it.
-  if (/^[.!?]\s*$/.test(processed) && previous.trimEnd().endsWith(processed.trim()))
-    return previous;
-  const last = previous.trimEnd().slice(-1);
-  const startsLine = /^[\r\n]/.test(processed);
-  const startsPunct = /^[.,;:!?]/.test(processed);
-  const separator = previous && !/\s$/.test(previous) && !startsLine && !startsPunct ? " " : "";
-  let next = processed;
-  const index = next.search(/[a-zà-ÿ]/i);
+  const before = String(previous ?? "");
+  const nextRaw = String(processed);
+  // Repeating an isolated command must not append a duplicate terminator.
+  if (/^[.!?]\s*$/u.test(nextRaw) && before.trimEnd().endsWith(nextRaw.trim()))
+    return before;
+  const leadingNewline = /^\s*\n/u.test(nextRaw);
+  const leadingPunctuation = /^[.,;:!?]/u.test(nextRaw.trimStart());
+  const join = before && !/\s$/u.test(before) && !leadingNewline && !leadingPunctuation ? " " : "";
+  let next = nextRaw;
+  const index = next.search(/[a-zà-ÿ]/iu);
   if (index >= 0) {
-    const uppercase = !previous.trim() || /[.!?]/.test(last) || !!options.forceUppercase;
+    const first = !before.trim() || /[.!?]$/u.test(before.trimEnd()) ||
+      !!options.forceUppercase;
     next = next.slice(0,index) +
-      (uppercase ? next[index].toLocaleUpperCase("it-IT") : next[index].toLocaleLowerCase("it-IT")) +
-      next.slice(index+1);
+      (first ? next[index].toLocaleUpperCase("it-IT") :
+        next[index].toLocaleLowerCase("it-IT")) + next.slice(index+1);
   }
-  return reviewPunctuation(previous + separator + next);
+  return reviewPunctuation(before + join + next);
 }

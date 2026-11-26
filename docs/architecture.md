@@ -130,3 +130,22 @@
 - `punto fermo?` viene ripulito del segno aggiunto da Edge **prima** delle
   sostituzioni; il risultato è un singolo punto esplicito. Il punto viene
   deduplicato se il testo precedente termina già con lo stesso segno.
+
+
+### Pipeline definitiva dei segmenti Edge (revisione)
+- A: su ogni risultato definitivo applicare trim; eliminare tutti i segni
+  **forti terminali** (., !, ?) anche ripetuti; scartare i segmenti
+  rimasti vuoti o costituiti soltanto da punteggiatura/simboli.
+  Non rimuovere la punteggiatura interna di Edge, che può essere corretta.
+- B: eseguire le keyword in ordine di configurazione. Le sostituzioni che
+  contengono un solo segno convenzionale (., !, ?, ,, ;, :) sono protette
+  da marcatori privati temporanei. La punteggiatura originale di Edge
+  immediatamente prima o dopo un marcatore viene scartata; i marcatori
+  adiacenti fra loro non si eliminano. Infine i marcatori diventano i
+  segni espliciti. Gli altri comandi (newline, #M, …) restano normali.
+- C: normalizzare spazi prima/dopo punteggiatura, preservare i newline
+  richiesti e correggere le iniziali dopo . ! ?. Il testo proiettato è
+  cumulativo; un comando «punto fermo» isolato può chiudere il precedente.
+- Nessuna pulizia dei segni forti dopo B: i segni pronunciati hanno priorità.
+- Questa sezione sostituisce le descrizioni precedenti del trattamento
+  del solo punto finale e della punteggiatura Edge finale conservata.

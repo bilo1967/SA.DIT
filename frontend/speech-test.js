@@ -1,6 +1,6 @@
 // Interpreter Web Speech recognizer: persistent state, DIT.tafono keywords and
 // bounded restart after unexpected onend (including recoverable network errors).
-import { cleanEdgeSegment, applyVoiceCommands, appendReviewedSegment, isPunctuationOnly, stripEdgePunctuationAfterCommand, containsSpokenPunctuationCommand } from "./voice-format.js";
+import { cleanEdgeSegment, applyVoiceCommands, appendReviewedSegment } from "./voice-format.js";
 
 export function initSpeechTest({button, status = {textContent:""}, interim = {textContent:""}, log, getCommands = () => [], onTranscript = () => {}, onInterim = () => {}}) {
   const Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -80,13 +80,10 @@ export function initSpeechTest({button, status = {textContent:""}, interim = {te
         if (typeof raw !== "string") continue;
         if (result.isFinal) {
           const commands = getCommands();
-          const cleaned = cleanEdgeSegment(stripEdgePunctuationAfterCommand(raw, commands));
+          const cleaned = cleanEdgeSegment(raw);
           if (!cleaned) continue;
           const processed = applyVoiceCommands(cleaned, commands);
-          // Reject orphan punctuation, not punctuation expressly requested
-          // by the interpreter. The latter can close a previous segment.
-          if (isPunctuationOnly(processed) &&
-              !containsSpokenPunctuationCommand(cleaned, commands)) continue;
+          // Orphan punctuation was discarded in A; explicit punctuation is valid.
           const previous = finalText;
           const forceUppercase = commands.some(({t,r}) =>
             r === "#M" && cleaned.toLocaleLowerCase("it-IT").startsWith(t.toLocaleLowerCase("it-IT")));
