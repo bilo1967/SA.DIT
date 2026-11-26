@@ -53,7 +53,10 @@ export function stripEdgePunctuationAfterCommand(text, commands) {
 // Keep exactly one space after punctuation when more text follows,
 // except when the next character is a newline. Ellipses stay intact.
 export function reviewPunctuation(text) {
-  const normalized = text.replace(/[ \t]+([.,;:!?])/g, "$1")
+  // Edge can put a full stop before a spoken "punto fermo"; avoid ". .".
+  // Ellipses ("...") have no spaces and are preserved.
+  const normalized = text.replace(/(?<!\\.)\\.[ \\t]+\\.(?!\\.)/g, ".")
+    .replace(/[ \t]+([.,;:!?])/g, "$1")
     .replace(/([.,;:!?])[ \t]*/g, (match, punctuation, offset, source) => {
       const next = source[offset + match.length];
       if (!next || next === "\r" || next === "\n") return punctuation;

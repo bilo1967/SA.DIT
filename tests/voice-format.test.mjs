@@ -35,6 +35,7 @@ test("sentence capitalization across segments and punctuation spacing",()=>{
   assert.equal(reviewPunctuation("ciao,mondo;oggi:sera!bene?domani."),"ciao, mondo; oggi: sera! Bene? Domani.");
   assert.equal(reviewPunctuation("ciao,\nmondo"),"ciao,\nmondo");
   assert.equal(reviewPunctuation("ciao... mondo"),"ciao... mondo");
+  assert.equal(reviewPunctuation("ciao. ."),"ciao.");
   assert.equal(appendReviewedSegment("","ciao. mondo"),"Ciao. Mondo");
   assert.equal(appendReviewedSegment("","ciao! mondo"),"Ciao! Mondo");
   assert.equal(appendReviewedSegment("","ciao? mondo"),"Ciao? Mondo");
