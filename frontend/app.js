@@ -177,6 +177,11 @@ function attachData(connection) {
   });
   data.on("data", payload => {
     if (!payload || typeof payload !== "object") return;
+    if (payload.type === "session-end") {
+      disconnect(false);
+      log("La controparte si è disconnessa.");
+      return;
+    }
     if (payload.type === "chat" && typeof payload.text === "string") addMessage(payload.text.slice(0, 2000));
     if (role === "room" && payload.type === "session-mode" && !roomMode) {
       if (payload.mode !== "external" && payload.mode !== "integrated") return;
@@ -264,7 +269,16 @@ function closeNetwork() {
   try { oldData?.close(); } catch {}
   try { oldPeer?.destroy(); } catch {}
 }
+// Send an explicit end-of-session packet before closing transport.
+function notifySessionEnd() {
+  if (!data?.open) return;
+  try { data.send({type:"session-end"}); }
+  catch (error) { log("Impossibile notificare la disconnessione.",error.message,"diagnostic"); }
+}
+window.addEventListener("sadit:main-closing", notifySessionEnd);
+
 function disconnect(writeLog = true) {
+  if (writeLog) notifySessionEnd();
   speechTest.stop();
   sessionMode = null;
   roomMode = null;

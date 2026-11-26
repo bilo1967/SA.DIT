@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -47,8 +49,17 @@ func main() {
 	})
 	window.Center()
 	// Closing the main window ends the app even if the projection is still open.
+	var closing sync.Once
 	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		app.Quit()
+		// Allow PeerJS to deliver the explicit disconnect message before quitting.
+		event.Cancel()
+		closing.Do(func() {
+			window.ExecJS("window.dispatchEvent(new Event('sadit:main-closing'))")
+			go func() {
+				time.Sleep(350 * time.Millisecond)
+				app.Quit()
+			}()
+		})
 	})
 	window.Show()
 
