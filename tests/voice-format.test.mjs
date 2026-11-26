@@ -36,7 +36,7 @@ test("B: explicit punctuation wins over Edge on both sides", () => {
     ["punto esclamativo.", "!"],
     ["virgola,", ","],
     ["ciao punto fermo, poi", "ciao. poi"],
-    ["ciao punto fermo punto interrogativo", "ciao. ?"],
+    ["ciao punto fermo punto interrogativo", "ciao.?"],
   ]) assert.equal(process(input), expected, input);
 });
 

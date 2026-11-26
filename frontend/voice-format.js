@@ -57,8 +57,12 @@ export function applyVoiceCommands(raw, commands) {
     text = text.replace(new RegExp("[\\p{P}\\p{S}]+[ \\t]*" + quoted, "gu"), marker);
     text = text.replace(new RegExp(quoted + "[ \\t]*[\\p{P}\\p{S}]+", "gu"), marker);
   }
-  for (let i = 0; i < tokens.length; i++)
-    text = text.replaceAll(MARK_START + i + MARK_END, tokens[i]);
+  // A conventional sign must never retain whitespace before its marker.
+  for (let i = 0; i < tokens.length; i++) {
+    const marker = MARK_START + i + MARK_END;
+    text = text.replace(new RegExp("[ \\t]+" + quoteRegExp(marker), "g"), marker);
+    text = text.replaceAll(marker, tokens[i]);
+  }
 
   return text.replace(/#M[ \t]*([a-zà-ÿ])/giu,
     (_, letter) => letter.toLocaleUpperCase("it-IT"));
