@@ -23,6 +23,9 @@ export function applyVoiceCommands(raw, commands) {
   text = text.replace(/^(\s*)([a-zà-ÿ])/i, (_, spaces, letter) => spaces + letter.toUpperCase());
   text = text.replace(/[ \\t]+([.,;:!?])/g, "$1");
   // Keep exactly one space after each punctuation mark unless a newline follows.
-  text = text.replace(/([.,;:!?])[ \\t]*(?![\\r\\n]|$)/g, "$1 ");
+  text = text.replace(/([.,;:!?])[ \\t]*/g, (match, punctuation, offset, original) => {
+    const next = original[offset + match.length];
+    return punctuation + (next === "\\n" || next === "\\r" ? "" : " ");
+  });
   return text;
 }
