@@ -2,7 +2,7 @@
 import { Call, Events } from "/wails/runtime.js";
 import { initSettings } from "./settings.js";
 import { initProjectionWindow } from "./projection-window.js";
-import { initSpeechTest } from "./speech-test.js";
+import { initKrokoSpeech } from "./kroko-speech.js";
 import { initVoiceCommands } from "./voice-commands.js";
 
 const $ = id => document.getElementById(id);
@@ -436,7 +436,7 @@ async function startInterpreter() {
 function startIntegrated() {
   if (busy) return;
   if (!speechTest.supported) {
-    failure("SpeechRecognition non disponibile in questa WebView.");
+    failure("Kroko non disponibile.");
     return;
   }
   busy = true;
@@ -763,7 +763,7 @@ Events.On("sadit:projection:error", event => {
   if (msg.session === projectionSession)
     failure("Errore nella finestra di proiezione.", new Error(msg.message || "Errore sconosciuto"));
 });
-const speechTest = initSpeechTest({
+const speechTest = initKrokoSpeech({
   button: $("speechTestToggle"),
   log,
   getCommands: () => voiceCommands.get(),

@@ -1,0 +1,10 @@
+Kroko ASR – Italian Community 128-L Streaming model
+Copyright Banafo / Kroko (https://kroko.ai/)
+Source: https://huggingface.co/Banafo/Kroko-ASR
+Filename: Kroko-IT-Community-128-L-Streaming-001.data
+The publisher identifies Community models as CC-BY-SA. The publisher
+does not state the Creative Commons version in the model card.
+This portable package contains four unmodified model payloads extracted
+from the official Community .data container: encoder.onnx, decoder.onnx,
+joiner.onnx and tokens.txt. No model training or quantization changes.
+Sherpa-ONNX inference engine: Apache-2.0 (https://github.com/k2-fsa/sherpa-onnx).

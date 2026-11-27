@@ -149,3 +149,14 @@
 - Nessuna pulizia dei segni forti dopo B: i segni pronunciati hanno priorità.
 - Questa sezione sostituisce le descrizioni precedenti del trattamento
   del solo punto finale e della punteggiatura Edge finale conservata.
+
+
+## Branch experiment/kroko-native
+- Web Speech API replaced by a local WebView2 AudioWorklet + Wails 3 binary
+  stream `kroko-audio` + sherpa-onnx-go native streaming decoder.
+- PCM mono 16 kHz signed 16-bit, chunks of 100ms, one recognizer/stream.
+- Endpoint recognized by Kroko becomes a final transcript; provisional output
+  remains local. Explicit punctuation is kept (no Edge terminal cleanup).
+- The portable Windows artifact bundles sherpa-onnx DLLs and the verified
+  Italian Community model (SHA-256 of original .data pinned in script).
+- This branch is experimental; ASR latency and packaging require real tests.

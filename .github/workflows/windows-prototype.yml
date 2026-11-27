@@ -6,6 +6,7 @@ on:
     branches:
       - prototype/media-validation
       - experiment/web-speech-recognition
+      - experiment/kroko-native
     paths:
       - "*.go"
       - "go.mod"
@@ -13,6 +14,8 @@ on:
       - "frontend/**"
       - "winres/**"
       - "tests/**"
+      - "scripts/**"
+      - "models/**"
       - ".github/workflows/windows-prototype.yml"
 
 permissions:
@@ -39,6 +42,17 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
           & "$(go env GOPATH)\\bin\\wails3.exe" generate bindings -names
+      - name: Stage native Sherpa runtime for tests
+        shell: pwsh
+        run: |
+          $modulePath = go list -m -f '{{.Dir}}' github.com/k2-fsa/sherpa-onnx-go-windows
+          $dllDir = Join-Path $modulePath 'lib/x86_64-pc-windows-gnu'
+          Copy-Item (Join-Path $dllDir '*.dll') .
+          if (!(Test-Path 'sherpa-onnx-c-api.dll')) { throw 'Sherpa DLLs missing' }
+      - name: Download and unpack Italian Kroko community model
+        shell: pwsh
+        run: |
+          python scripts/prepare-kroko.py
       - name: Run Go tests
         shell: pwsh
         run: go test ./...
@@ -53,10 +67,20 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           go build -tags production -trimpath -ldflags="-s -w -H=windowsgui -X main.buildNumber=${{ github.run_number }}" -o dist/SA.DIT.exe .
+      - name: Assemble portable package
+        shell: pwsh
+        run: |
+          Copy-Item *.dll dist/
+          New-Item -ItemType Directory -Force dist/models/kroko-it | Out-Null
+          Copy-Item models/kroko-it/* dist/models/kroko-it/
+          New-Item -ItemType Directory -Force dist/licenses | Out-Null
+          Copy-Item licenses/KROKO-ATTRIBUTION.txt dist/licenses/
+          if (!(Test-Path dist/models/kroko-it/encoder.onnx)) { throw 'Kroko model missing' }
+          Compress-Archive -Path dist/* -DestinationPath SA.DIT-Kroko-Windows-amd64.zip -Force
       - name: Upload portable executable
         uses: actions/upload-artifact@v4
         with:
-          name: SA.DIT-Windows-amd64-prototype
-          path: dist/SA.DIT.exe
+          name: SA.DIT-Kroko-Windows-amd64-prototype
+          path: SA.DIT-Kroko-Windows-amd64.zip
           if-no-files-found: error
           retention-days: 14

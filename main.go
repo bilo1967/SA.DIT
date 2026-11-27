@@ -35,6 +35,8 @@ func main() {
 		},
 	})
 
+	registerKrokoStream(app)
+
 	projection := &ProjectionService{app: app}
 	app.RegisterService(application.NewService(projection))
 
