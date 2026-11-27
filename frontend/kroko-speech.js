@@ -3,14 +3,14 @@ import { Stream } from "/wails/runtime.js";
 import { applyVoiceCommands, appendReviewedSegment } from "./voice-format.js";
 
 export function initKrokoSpeech({button,status={textContent:""},interim={textContent:""},log,getCommands=()=>[],onTranscript=()=>{},onInterim=()=>{}}) {
- let desired=false, finalText="",revision=0, socket=null, microphone=null, audio=null, worklet=null;
+ let desired=false, finalText="",revision=0, socket=null, microphone=null, audio=null, worklet=null, mute=null;
  const show=()=>{ button.textContent=desired?"Interrompi riconoscimento":"Avvia riconoscimento"; };
  const clearPartial=()=>{interim.textContent="";onInterim("");};
  const emit=()=>onTranscript({type:"transcript",revision:++revision,final:finalText});
  function clear(){finalText="";revision=0;clearPartial();emit();}
  function stop(){
   desired=false;show();clearPartial();status.textContent="Riconoscimento interrotto";
-  worklet?.disconnect();worklet=null;
+  worklet?.disconnect();worklet=null;mute?.disconnect();mute=null;
   audio?.close().catch(()=>{});audio=null;
   microphone?.getTracks().forEach(t=>t.stop());microphone=null;
   socket?.close();socket=null;
@@ -45,7 +45,9 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
      if(!desired){microphone.getTracks().forEach(t=>t.stop());return;}
      audio=new AudioContext();
      await audio.audioWorklet.addModule("./kroko-worklet.js");
-     worklet=new AudioWorkletNode(audio,"kroko-audio",{numberOfInputs:1,numberOfOutputs:0});
+     worklet=new AudioWorkletNode(audio,"kroko-audio",{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});
+     mute=audio.createGain();mute.gain.value=0;
+     worklet.connect(mute).connect(audio.destination);
      worklet.port.onmessage=e=>{
       if(desired&&stream.readyState===stream.OPEN&&stream.bufferedAmount<256000)stream.send(e.data);
      };
