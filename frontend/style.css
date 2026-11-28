@@ -130,3 +130,6 @@ label{font-size:12px;font-weight:600;color:#516479}h1{font-size:24px;margin:0 0 
 #settingsDialog .audio-legend{display:flex;align-items:center;gap:10px;width:100%;padding:0}
 #settingsDialog .audio-legend>span:first-child{flex:none}
 #settingsDialog #settingsRefreshDevices{flex:none;min-height:26px;padding:3px 8px;font-size:12px;font-weight:400}
+
+/* The setup microphone selector is only shown for the Interpreter role. */
+#settingsMicrophoneRow[hidden]{display:none}
