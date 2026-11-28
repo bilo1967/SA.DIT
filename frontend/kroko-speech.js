@@ -51,7 +51,7 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
     if(packet.type==="interim"){interim.textContent=packet.text;onInterim(packet.text);return;}
     if(packet.type!=="ready") return;
     log("Kroko pronto", "Caricamento modello e stream: " + (packet.loadMs ?? "?") +
-      " ms · attesa totale: " + Math.round(performance.now()-sessionStart) + " ms", "diagnostic");
+      " ms · attesa totale: " + Math.round(performance.now()-sessionStart) + " ms", "info");
     try {
      microphone=await navigator.mediaDevices.getUserMedia({audio:{
        ...(microphoneId ? {deviceId:{exact:microphoneId}} : {}),
