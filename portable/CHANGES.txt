@@ -1,0 +1,17 @@
+SA.DIT - CHANGES
+=================
+
+Sviluppo sperimentale - Kroko native ASR
+----------------------------------------
+
+- Riconoscimento vocale integrato, offline, con il modello italiano Kroko.
+- Visualizzazione dei risultati provvisori e trasmissione alla Sala
+  dei sottotitoli consolidati.
+- Scelta indipendente di microfono di riconoscimento e cuffie.
+- Parametri di fine segmento modificabili in config\kroko.json.
+- Tutti i file di configurazione concentrati nella cartella config\
+  accanto all'eseguibile; creazione automatica dei file mancanti.
+- Pacchetto portable con DLL e modello inclusi.
+- Archivio dell'artifact semplificato: non contiene piu' un secondo ZIP.
+
+Le funzionalita' sperimentali possono subire modifiche.

@@ -16,6 +16,7 @@ on:
       - "tests/**"
       - "scripts/**"
       - "models/**"
+      - "portable/**"
       - ".github/workflows/windows-prototype.yml"
 
 permissions:
@@ -75,12 +76,14 @@ jobs:
           Copy-Item models/kroko-it/* dist/models/kroko-it/
           New-Item -ItemType Directory -Force dist/licenses | Out-Null
           Copy-Item licenses/KROKO-ATTRIBUTION.txt dist/licenses/
+          Copy-Item portable/README.txt dist/README.txt
+          Copy-Item portable/CHANGES.txt dist/CHANGES.txt
           if (!(Test-Path dist/models/kroko-it/encoder.onnx)) { throw 'Kroko model missing' }
-          Compress-Archive -Path dist/* -DestinationPath SA.DIT-Kroko-Windows-amd64.zip -Force
+          if (!(Test-Path dist/README.txt)) { throw 'Portable README missing' }
       - name: Upload portable executable
         uses: actions/upload-artifact@v4
         with:
           name: SA.DIT-Kroko-Windows-amd64-prototype
-          path: SA.DIT-Kroko-Windows-amd64.zip
+          path: dist/
           if-no-files-found: error
           retention-days: 14
