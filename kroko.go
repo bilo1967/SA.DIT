@@ -2,6 +2,8 @@ package main
 
 import (
  "encoding/binary"
+ "errors"
+ "math"
  "fmt"
  "os"
  "path/filepath"
@@ -12,6 +14,37 @@ import (
 )
 
 const krokoSampleRate = 16000
+
+// KrokoConfig exposes endpoint timing for experiments without recompilation.
+type KrokoConfig struct {
+ Rule1MinTrailingSilence float32 `json:"rule1MinTrailingSilence"`
+ Rule2MinTrailingSilence float32 `json:"rule2MinTrailingSilence"`
+ Rule3MinUtteranceLength float32 `json:"rule3MinUtteranceLength"`
+}
+
+func defaultKrokoConfig() KrokoConfig {
+ return KrokoConfig{
+  Rule1MinTrailingSilence: 1.5,
+  Rule2MinTrailingSilence: 0.65,
+  Rule3MinUtteranceLength: 20,
+ }
+}
+
+func (cfg KrokoConfig) validate() error {
+ values := []float32{cfg.Rule1MinTrailingSilence,cfg.Rule2MinTrailingSilence,cfg.Rule3MinUtteranceLength}
+ for _, v := range values {
+  if v <= 0 || v > 120 || math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+   return errors.New("kroko.json: endpoint timing must be within (0, 120] seconds")
+  }
+ }
+ return nil
+}
+
+func loadKrokoConfig() (KrokoConfig, error) {
+ cfg := defaultKrokoConfig()
+ if err := readJSON("kroko.json", &cfg); err != nil { return cfg, err }
+ return cfg, cfg.validate()
+}
 
 // One recognizer per audio session. Decoder runs on its stream handler goroutine,
 // never on the WebView audio worklet thread.
@@ -32,6 +65,11 @@ func registerKrokoStream(app *application.App) {
    }
   }
 
+  endpoint, err := loadKrokoConfig()
+  if err != nil {
+   _ = conn.SendJSON(map[string]string{"type":"error","message":fmt.Sprintf("Configurazione Kroko: %v", err)})
+   return
+  }
   cfg := sherpa.OnlineRecognizerConfig{}
   cfg.FeatConfig = sherpa.FeatureConfig{SampleRate:krokoSampleRate,FeatureDim:80}
   cfg.ModelConfig.Transducer.Encoder = filepath.Join(modelDir,"encoder.onnx")
@@ -42,9 +80,9 @@ func registerKrokoStream(app *application.App) {
   cfg.ModelConfig.Provider = "cpu"
   cfg.DecodingMethod = "greedy_search"
   cfg.EnableEndpoint = 1
-  cfg.Rule1MinTrailingSilence = 1.5
-  cfg.Rule2MinTrailingSilence = 0.65
-  cfg.Rule3MinUtteranceLength = 20
+  cfg.Rule1MinTrailingSilence = endpoint.Rule1MinTrailingSilence
+  cfg.Rule2MinTrailingSilence = endpoint.Rule2MinTrailingSilence
+  cfg.Rule3MinUtteranceLength = endpoint.Rule3MinUtteranceLength
 
   recognizer := sherpa.NewOnlineRecognizer(&cfg)
   if recognizer == nil { _ = conn.SendJSON(map[string]string{"type":"error","message":"Impossibile inizializzare Kroko"}); return }

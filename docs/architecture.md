@@ -169,3 +169,13 @@
 - Endpointing sperimentale: rule1=1.5 s (prima 2.4), rule2=0.65 s (prima 1.2),
   rule3=20 s invariato. Solo l'endpoint genera testo definitivo; il testo
   provvisorio resta locale. Verificare frammentazione e latenza su respeaking.
+
+### Portable configuration (Kroko experiment)
+- All JSON configuration is stored only in `<executable directory>/config/`.
+  First startup creates missing `signaling.json`, `preferences.json`,
+  `voice-commands.json`, and `kroko.json` without overwriting existing files.
+  The previous AppData fallback is deliberately removed; copy existing settings
+  manually if required.
+- Kroko endpointing is loaded from `kroko.json` at the start of every audio
+  stream, not on each frame. Timings are in seconds, positive and <= 120.
+  Current experimental defaults: rule1=1.5, rule2=0.65, rule3=20.

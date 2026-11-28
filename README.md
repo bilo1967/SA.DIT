@@ -42,19 +42,35 @@ The remote video is transferred to the room's separate display via a second, loc
 
 **Setup** opens a fixed-height dialog with audio device selection, PeerJS signaling options and an independently scrollable list of STUN/TURN servers. Save and Cancel remain accessible at the bottom.
 
-SA.DIT uses two JSON files:
+SA.DIT uses one portable configuration directory alongside the executable:
+`SA.DIT/config/`. It does **not** read or write `%APPDATA%\\SA.DIT` or JSON files
+directly beside the EXE. Missing files are generated automatically at startup.
+Existing files are not overwritten.
 
 | File | Purpose |
 | --- | --- |
-| `signaling.json` | PeerJS host, port, path, TLS and STUN/TURN server settings; may be shared across PCs. |
-| `preferences.json` | Local role, audio input/output IDs and the projection titlebar preference. |
+| `config/signaling.json` | PeerJS and ICE/STUN/TURN configuration. |
+| `config/preferences.json` | Role and audio device preferences. |
+| `config/voice-commands.json` | Spoken keyword replacements. |
+| `config/kroko.json` | Kroko endpoint thresholds (seconds). |
 
-For **each file**, lookup order is:
+The initial contents of `config/kroko.json` are:
 
-1. `%APPDATA%\SA.DIT\`
-2. The directory containing `SA.DIT.exe` (portable fallback)
+```json
+{
+  "rule1MinTrailingSilence": 1.5,
+  "rule2MinTrailingSilence": 0.65,
+  "rule3MinUtteranceLength": 20
+}
+```
 
-If both copies exist, the AppData copy wins. Existing files are saved back to their original location; new files are created in AppData. To deploy a self-contained configuration, distribute the JSON files beside the executable **before** saving settings in the app.
+Edit the file while recognition is stopped; the values are reloaded on the
+next start of the Kroko recognizer. Invalid values produce an explicit error.
+For earlier builds, copy relevant settings **manually** from
+`%APPDATA%\\SA.DIT\\` (or from files beside the old executable) into the
+new `config/` directory. There is no implicit migration or AppData fallback.
+Keep the extracted application in a writable directory; first run requires
+permission to create `config/`.
 
 Default signaling uses `0.peerjs.com:443` over TLS, two Google STUN servers and **no TURN**. You can configure your own PeerJS/STUN/TURN infrastructure.
 

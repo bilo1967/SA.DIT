@@ -34,40 +34,50 @@ type Preferences struct {
 	HideProjectionTitlebar bool `json:"hideProjectionTitlebar"`
 }
 
-// ConfigService reads AppData first, then the executable directory.
+// ConfigService reads and writes only config/ beside the executable.
 type ConfigService struct{}
 
-// configDirs returns directories in lookup priority order.
-func configDirs() (string, string, error) {
-	userBase, err := os.UserConfigDir()
-	if err != nil { return "", "", err }
-	executable, err := os.Executable()
-	if err != nil { return "", "", err }
-	return filepath.Join(userBase, "SA.DIT"), filepath.Dir(executable), nil
-}
-
-// resolveConfigPath chooses an existing config from AppData or beside the EXE.
-// If neither exists, save a newly created configuration into AppData.
-func resolveConfigPath(file, appDataDir, executableDir string) (string, error) {
-	if file != "signaling.json" && file != "preferences.json" && file != "voice-commands.json" {
-		return "", fmt.Errorf("unsupported config filename: %s", file)
-	}
-	for _, dir := range []string{appDataDir, executableDir} {
-		path := filepath.Join(dir, file)
-		info, err := os.Stat(path)
-		if err == nil {
-			if info.IsDir() { return "", fmt.Errorf("%s is a directory", path) }
-			return path, nil
-		}
-		if !errors.Is(err, os.ErrNotExist) { return "", err }
-	}
-	return filepath.Join(appDataDir, file), nil
+// portableConfigPath validates filenames and uses a single portable location.
+func portableConfigPath(executableDir, file string) (string, error) {
+ switch file {
+ case "signaling.json", "preferences.json", "voice-commands.json", "kroko.json":
+  return filepath.Join(executableDir, "config", file), nil
+ default:
+  return "", fmt.Errorf("unsupported config filename: %s", file)
+ }
 }
 
 func configPath(file string) (string, error) {
-	appDataDir, executableDir, err := configDirs()
-	if err != nil { return "", err }
-	return resolveConfigPath(file, appDataDir, executableDir)
+ executable, err := os.Executable()
+ if err != nil { return "", err }
+ return portableConfigPath(filepath.Dir(executable), file)
+}
+
+// ensurePortableConfig writes only missing files; an existing (even malformed)
+// configuration is never overwritten. Configuration failures are fatal on start.
+func ensurePortableConfig() error {
+ for _, item := range []struct {
+  file string
+  value any
+ }{
+  {"signaling.json", defaultSignaling()},
+  {"preferences.json", defaultPreferences()},
+  {"voice-commands.json", defaultVoiceCommands()},
+  {"kroko.json", defaultKrokoConfig()},
+ } {
+  path, err := configPath(item.file)
+  if err != nil { return err }
+  info, err := os.Stat(path)
+  if err == nil {
+   if info.IsDir() { return fmt.Errorf("%s is a directory", path) }
+   continue
+  }
+  if !errors.Is(err, os.ErrNotExist) { return err }
+  if err := saveJSON(item.file, item.value); err != nil {
+   return fmt.Errorf("cannot initialize %s: %w", path, err)
+  }
+ }
+ return nil
 }
 
 func defaultSignaling() SignalingConfig {

@@ -19,6 +19,7 @@ var buildNumber = "dev"
 var frontend embed.FS
 
 func main() {
+	if err := ensurePortableConfig(); err != nil { log.Fatal("Portable config: ", err) }
 	content, err := fs.Sub(frontend, "frontend")
 	if err != nil {
 		log.Fatal(err)
