@@ -56,7 +56,7 @@ function updateSubtitleTransmissionButton() {
 }
 
 // Keep the full log in the DOM; display only user-facing events.
-const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
+const essentialLog = /sottotitoli|kroko pronto|riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
 function log(message, technical = "", level = "info") {
   const item = document.createElement("div");
   const visible = level === "error" || level === "transcript" || level === "interim" ||
