@@ -6,6 +6,7 @@ import (
  "os"
  "path/filepath"
  "sync"
+ "strings"
  "time"
 )
 
@@ -49,4 +50,30 @@ func (*KrokoDiagnosticsService) RecordTransmission(packet string) error {
  var value any
  if err := json.Unmarshal([]byte(packet), &value); err != nil { return err }
  return appendKrokoDebug("outgoing", value)
+}
+
+// finalSegmentLine preserves the raw result including significant leading and
+// trailing spaces. Embedded newlines are escaped to keep one result per line.
+func finalSegmentLine(raw string) string {
+ return strings.NewReplacer("\\", "\\\\", "\r", "\\r", "\n", "\\n").Replace(raw) + "\n"
+}
+
+// appendKrokoFinalSegment stores the recognizer's final output before any
+// voice-command substitution, trimming, or sentence formatting.
+func appendKrokoFinalSegment(raw string) error {
+ exe, err := os.Executable()
+ if err != nil { return err }
+ return writeKrokoFinalSegment(filepath.Join(filepath.Dir(exe), "logs"), raw)
+}
+
+func writeKrokoFinalSegment(dir, raw string) error {
+ krokoDebugMu.Lock()
+ defer krokoDebugMu.Unlock()
+ if err := os.MkdirAll(dir, 0700); err != nil { return err }
+ path := filepath.Join(dir, "kroko-final-segments.txt")
+ file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+ if err != nil { return err }
+ defer file.Close()
+ _, err = file.WriteString(finalSegmentLine(raw))
+ return err
 }

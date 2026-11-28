@@ -13,6 +13,8 @@ Sviluppo sperimentale - Kroko native ASR
   accanto all'eseguibile; creazione automatica dei file mancanti.
 - Pacchetto portable con DLL e modello inclusi.
 - Comandi Pulisci sottotitoli e Sospendi/Riprendi invio.
+- Estrazione dei segmenti finali Kroko in logs\\kroko-final-segments.txt,
+  un segmento per riga, prima di qualsiasi elaborazione.
 - Diagnostica JSONL delle ipotesi Kroko grezze e del testo trasmesso.
 - Tempi di caricamento del modello e di prima trascrizione registrati.
 - Archivio dell'artifact semplificato: non contiene piu' un secondo ZIP.

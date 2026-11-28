@@ -117,6 +117,7 @@ func registerKrokoStream(app *application.App) {
    }
    if endpointReached {
     if raw != "" {
+     if err := appendKrokoFinalSegment(raw); err != nil { fmt.Fprintln(os.Stderr, "Kroko final segments:", err) }
      _ = appendKrokoDebug("asr-final", map[string]any{"raw":raw,"result":result})
      _ = conn.SendJSON(map[string]any{"type":"final","text":raw})
     }

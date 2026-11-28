@@ -132,8 +132,19 @@ config\kroko.json
 DIAGNOSTICA DEL RICONOSCIMENTO
 ------------------------------
 
-Durante le prove, l'Interprete salva automaticamente il file:
+Durante le prove, l'Interprete salva automaticamente due file:
+  logs\\kroko-final-segments.txt
   logs\\kroko-debug.jsonl
+
+Il primo contiene SOLO i risultati definitivi di Kroko, uno per riga,
+nel loro ordine originale. Non vengono eseguiti trim, sostituzioni delle
+keyword o correzioni di punteggiatura. Spazi iniziali e finali sono
+conservati. Solo eventuali ritorni a capo interni e backslash vengono
+rappresentati con sequenze escape, per mantenere una riga per segmento.
+Il file si accumula nelle sessioni successive: eliminarlo o rinominarlo
+prima di una nuova prova permette di ottenere un corpus separato.
+
+Il secondo file contiene la diagnostica dettagliata:
 
 Ogni riga contiene un evento con data/ora. In particolare:
   model-ready   Modello caricato e pronto; tempo di inizializzazione.
