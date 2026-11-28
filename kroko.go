@@ -42,8 +42,8 @@ func registerKrokoStream(app *application.App) {
   cfg.ModelConfig.Provider = "cpu"
   cfg.DecodingMethod = "greedy_search"
   cfg.EnableEndpoint = 1
-  cfg.Rule1MinTrailingSilence = 2.4
-  cfg.Rule2MinTrailingSilence = 1.2
+  cfg.Rule1MinTrailingSilence = 1.5
+  cfg.Rule2MinTrailingSilence = 0.65
   cfg.Rule3MinUtteranceLength = 20
 
   recognizer := sherpa.NewOnlineRecognizer(&cfg)

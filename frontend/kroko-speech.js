@@ -3,7 +3,7 @@ import { Stream } from "/wails/runtime.js";
 import { applyVoiceCommands, appendReviewedSegment } from "./voice-format.js";
 
 export function initKrokoSpeech({button,status={textContent:""},interim={textContent:""},log,getCommands=()=>[],onTranscript=()=>{},onInterim=()=>{}}) {
- let desired=false, finalText="",revision=0, socket=null, microphone=null, audio=null, worklet=null, mute=null;
+ let desired=false, finalText="",revision=0, socket=null, microphone=null, audio=null, worklet=null, mute=null, microphoneId="";
  const show=()=>{ button.textContent=desired?"Interrompi riconoscimento":"Avvia riconoscimento"; };
  const clearPartial=()=>{interim.textContent="";onInterim("");};
  const emit=()=>onTranscript({type:"transcript",revision:++revision,final:finalText});
@@ -41,7 +41,10 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
     if(packet.type==="interim"){interim.textContent=packet.text;onInterim(packet.text);return;}
     if(packet.type!=="ready") return;
     try {
-     microphone=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+     microphone=await navigator.mediaDevices.getUserMedia({audio:{
+       ...(microphoneId ? {deviceId:{exact:microphoneId}} : {}),
+       echoCancellation:false,noiseSuppression:false,autoGainControl:false
+     },video:false});
      if(!desired){microphone.getTracks().forEach(t=>t.stop());return;}
      audio=new AudioContext();
      await audio.audioWorklet.addModule("./kroko-worklet.js");
@@ -60,7 +63,15 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
    stream.onclose=()=>{if(desired){log("Stream Kroko chiuso","","error");stop();}};
   } catch(e){log("Kroko: "+e.message,"","error");stop();}
  }
+ async function setMicrophoneId(id) {
+  const next=String(id||"");
+  if(microphoneId===next) return;
+  microphoneId=next;
+  // Changing capture device during a session restarts Kroko without clearing
+  // the cumulative transcript or its revision counter.
+  if(desired){stop();await start();}
+ }
  button.onclick=()=>desired?stop():start();
  show();status.textContent="Pronto · Kroko italiano (locale)";
- return {start,stop,clear,supported:true,get active(){return desired;},snapshot:()=>({final:finalText,revision})};
+ return {start,stop,clear,setMicrophoneId,supported:true,get active(){return desired;},snapshot:()=>({final:finalText,revision})};
 }

@@ -916,9 +916,11 @@ try {
     setSignaling: cfg => { signaling=cfg; },
     setPreferences: prefs => {
       preferences = prefs;
+      speechTest.setMicrophoneId(prefs.interpreterMicrophoneId || "");
       projectionWindow.applyPreference(prefs).catch(e => failure("Non riesco ad applicare le preferenze della proiezione.", e));
     },
     chooseDevice: id => { $("deviceSelect").value=id; if(role==="interpreter")chooseAudioSink(id); },
+    setInterpreterMicrophone: id => speechTest.setMicrophoneId(id),
     refreshDevices,
     log,
   });

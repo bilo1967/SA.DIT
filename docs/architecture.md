@@ -160,3 +160,12 @@
 - The portable Windows artifact bundles sherpa-onnx DLLs and the verified
   Italian Community model (SHA-256 of original .data pinned in script).
 - This branch is experimental; ASR latency and packaging require real tests.
+
+### Kroko: microfono e finalizzazione
+- Setup Interprete: selezione distinta per cuffie e microfono di acquisizione Kroko;
+  il microfono viene salvato in `interpreterMicrophoneId` e passato a
+  `getUserMedia({deviceId:{exact:...}})` quando specificato. La modifica
+  durante l'ascolto riavvia l'acquisizione preservando il testo cumulativo.
+- Endpointing sperimentale: rule1=1.5 s (prima 2.4), rule2=0.65 s (prima 1.2),
+  rule3=20 s invariato. Solo l'endpoint genera testo definitivo; il testo
+  provvisorio resta locale. Verificare frammentazione e latenza su respeaking.

@@ -48,14 +48,14 @@ async function savePrefs(partial) {
   await invoke("SavePreferences", preferences);
 }
 
-function showSettings() {
+async function showSettings() {
   $("peerHost").value = signaling.host;
   $("peerPort").value = signaling.port;
   $("peerPath").value = signaling.path;
   $("peerSecure").checked = signaling.secure;
   $("iceRows").replaceChildren();
   for (const server of signaling.iceServers || []) addICE(server);
-  updateDeviceOptions();
+  await updateDeviceOptions();
   $("settingsError").textContent = "";
   $("settingsDialog").showModal();
 }
@@ -72,7 +72,25 @@ async function updateDeviceOptions() {
   const current = interpreter ? preferences.outputDeviceId : preferences.inputDeviceId;
   select.replaceChildren(...[...$("deviceSelect").options].map(o => new Option(o.textContent, o.value)));
   select.value = [...select.options].some(o=>o.value===current) ? current : "";
-
+  // The interpreter has two independent devices: floor playback and Kroko capture.
+  const microphoneRow = $("settingsMicrophoneRow");
+  microphoneRow.hidden = !interpreter;
+  if (interpreter) {
+    const microphone = $("settingsMicrophone");
+    const selected = microphone.value || preferences.interpreterMicrophoneId || "";
+    let inputs = await navigator.mediaDevices.enumerateDevices();
+    if (inputs.filter(d=>d.kind==="audioinput"&&d.deviceId&&d.deviceId!=="default").length === 0) {
+      try {
+        const permission = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+        permission.getTracks().forEach(t=>t.stop());
+        inputs = await navigator.mediaDevices.enumerateDevices();
+      } catch { /* Device names may remain unavailable until the user grants access. */ }
+    }
+    microphone.replaceChildren(new Option("Predefinito", ""));
+    for (const device of inputs.filter(d=>d.kind==="audioinput"&&d.deviceId&&d.deviceId!=="default"))
+      microphone.add(new Option(device.label || "Microfono " + microphone.length, device.deviceId));
+    if ([...microphone.options].some(option=>option.value===selected)) microphone.value=selected;
+  }
 }
 
 async function saveDialog(event) {
@@ -89,7 +107,10 @@ async function saveDialog(event) {
     signaling = next;
     app.setSignaling(signaling);
     const chosenDevice = $("settingsDevice").value;
-    await savePrefs(app.getRole() === "room" ? {inputDeviceId:chosenDevice} : {outputDeviceId:chosenDevice});
+    await savePrefs(app.getRole() === "room"
+      ? {inputDeviceId:chosenDevice}
+      : {outputDeviceId:chosenDevice, interpreterMicrophoneId:$("settingsMicrophone").value});
+    if (app.getRole() === "interpreter") await app.setInterpreterMicrophone($("settingsMicrophone").value);
     app.chooseDevice(chosenDevice);
     $("settingsDialog").close();
     app.log("Impostazioni salvate. Le impostazioni di rete valgono dalla prossima connessione.");
