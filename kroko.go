@@ -8,6 +8,7 @@ import (
  "os"
  "path/filepath"
  "sync"
+ "time"
 
  sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
  "github.com/wailsapp/wails/v3/pkg/application"
@@ -84,31 +85,47 @@ func registerKrokoStream(app *application.App) {
   cfg.Rule2MinTrailingSilence = endpoint.Rule2MinTrailingSilence
   cfg.Rule3MinUtteranceLength = endpoint.Rule3MinUtteranceLength
 
+  loadStarted := time.Now()
   recognizer := sherpa.NewOnlineRecognizer(&cfg)
   if recognizer == nil { _ = conn.SendJSON(map[string]string{"type":"error","message":"Impossibile inizializzare Kroko"}); return }
   defer sherpa.DeleteOnlineRecognizer(recognizer)
   stream := sherpa.NewOnlineStream(recognizer)
   if stream == nil { _ = conn.SendJSON(map[string]string{"type":"error","message":"Impossibile creare lo stream Kroko"}); return }
   defer sherpa.DeleteOnlineStream(stream)
-  _ = conn.SendJSON(map[string]string{"type":"ready"})
+  loadMs := time.Since(loadStarted).Milliseconds()
+  _ = appendKrokoDebug("model-ready", map[string]any{"loadMs": loadMs})
+  _ = conn.SendJSON(map[string]any{"type":"ready","loadMs":loadMs})
   last := ""
+  var firstAudioAt time.Time
+  firstResultLogged := false
   for {
    frame, err := conn.Receive()
    if err != nil { return }
+   if firstAudioAt.IsZero() { firstAudioAt = time.Now(); _ = appendKrokoDebug("first-audio", nil) }
    if len(frame) == 0 { return }
    if len(frame)%2 != 0 { continue }
    samples := make([]float32, len(frame)/2)
    for i := range samples { samples[i] = float32(int16(binary.LittleEndian.Uint16(frame[i*2:]))) / 32768 }
    stream.AcceptWaveform(krokoSampleRate, samples)
    for recognizer.IsReady(stream) { recognizer.Decode(stream) }
-   result := recognizer.GetResult(stream).Text
-   if recognizer.IsEndpoint(stream) {
-    if result != "" { _ = conn.SendJSON(map[string]string{"type":"final","text":result}) }
+   result := recognizer.GetResult(stream)
+   raw := result.Text
+   endpointReached := recognizer.IsEndpoint(stream)
+   if raw != "" && !firstResultLogged {
+    firstResultLogged = true
+    _ = appendKrokoDebug("first-result", map[string]any{"firstResultMs":time.Since(firstAudioAt).Milliseconds()})
+   }
+   if endpointReached {
+    if raw != "" {
+     _ = appendKrokoDebug("asr-final", map[string]any{"raw":raw,"result":result})
+     _ = conn.SendJSON(map[string]any{"type":"final","text":raw})
+    }
     recognizer.Reset(stream)
     last = ""
-   } else if result != last {
-    last = result
-    _ = conn.SendJSON(map[string]string{"type":"interim","text":result})
+   } else if raw != last {
+    last = raw
+    _ = appendKrokoDebug("asr-interim", map[string]any{"raw":raw,"result":result})
+    _ = conn.SendJSON(map[string]any{"type":"interim","text":raw})
    }
   }
  })

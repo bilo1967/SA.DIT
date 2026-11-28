@@ -31,6 +31,12 @@ FUNZIONI PRINCIPALI
 - Visualizzazione locale dei risultati provvisori; proiezione del testo
   consolidato nella Sala.
 - Comandi vocali personalizzabili per punteggiatura, maiuscole e a capo.
+- "Pulisci sottotitoli" svuota la finestra dei sottotitoli in Sala
+  e riparte con un nuovo testo, senza interrompere il riconoscimento.
+- "Sospendi invio" interrompe solo la trasmissione dei sottotitoli,
+  lasciando attivo il microfono e il riconoscimento. "Riprendi invio"
+  torna a trasmettere i segmenti successivi: quelli pronunciati durante
+  la sospensione non vengono inviati successivamente.
 - Scelta del microfono dell'Interprete e delle cuffie in Setup.
 - Scelta del microfono della Sala e cambio ingresso durante la sessione.
 - Finestra di proiezione separata, riposizionabile e ridimensionabile.
@@ -122,6 +128,29 @@ config\kroko.json
 
   I valori devono essere maggiori di zero e non superiori a 120.
   Se il file non e' valido, Kroko segnala un errore.
+
+DIAGNOSTICA DEL RICONOSCIMENTO
+------------------------------
+
+Durante le prove, l'Interprete salva automaticamente il file:
+  logs\\kroko-debug.jsonl
+
+Ogni riga contiene un evento con data/ora. In particolare:
+  model-ready   Modello caricato e pronto; tempo di inizializzazione.
+  first-audio   Arrivo dei primi campioni dal microfono.
+  first-result  Tempo trascorso fino al primo risultato riconosciuto.
+  asr-interim   Testo provvisorio grezzo di Kroko.
+  asr-final     Segmento definitivo grezzo di Kroko.
+  outgoing      Sottotitoli o comandi di sistema passati all'invio
+                verso la Sala ("transcript" e "subtitle-clear").
+
+I testi sono registrati senza eliminare eventuali spazi iniziali
+o finali. Il file permette di confrontare il riconoscimento con i
+sottotitoli effettivamente trasmessi e di studiare la punteggiatura.
+
+Attenzione: il log contiene il testo pronunciato. Non condividerlo
+senza aver verificato l'assenza di informazioni riservate.
+Il file puo' essere eliminato dopo i test.
 
 NOTE D'USO
 ----------

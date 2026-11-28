@@ -18,6 +18,7 @@ let roomMediaStarted = false;
 let roomPeerId = null;
 let roomTranscriptRevision = -1;
 let roomTranscript = {final:"",revision:0};
+let subtitleTransmissionSuspended = false;
 let interimLogEntry = null;
 let voiceCommands = {get: () => []};
 let switchingSharing = false;
@@ -37,6 +38,22 @@ const projectionWindow = initProjectionWindow({
   savePreference: partial => savePrefs(partial),
   failure,
 });
+
+// Preserve the exact outgoing subtitle snapshot in the portable diagnostic JSONL.
+function recordSubtitlePacket(type, payload) {
+  Call.ByName("main.KrokoDiagnosticsService.RecordTransmission", JSON.stringify({type, payload}))
+    .catch(error => log("Diagnostica Kroko non scritta.", error.message, "error"));
+}
+function sendSubtitlePacket(payload) {
+  if (role !== "interpreter" || sessionMode !== "integrated" || !data?.open) return;
+  data.send(payload);
+  recordSubtitlePacket(payload.type, payload);
+}
+function updateSubtitleTransmissionButton() {
+  const button = $("suspendSubtitles");
+  button.textContent = subtitleTransmissionSuspended ? "Riprendi invio" : "Sospendi invio";
+  button.setAttribute("aria-pressed", String(subtitleTransmissionSuspended));
+}
 
 // Keep the full log in the DOM; display only user-facing events.
 const essentialLog = /riconoscimento vocale|trascrizione:|modalità|PIN creato|canale chat|collegat[oa]|disconness|audio della sala acquisito|audio della sala ricevuto|video dell'interprete ricevuto|flusso remoto ricevuto|finestra selezionata|condivisione|sessione terminata|proiezione attiva|video collegato alla finestra|finestra condivisa modificata|nuova finestra|ingresso audio della sala modificato|microfono non autorizzato|autorizzare l'ascolto|non riesco|impossibile|interrotta|scollegat[oa]/i;
@@ -167,7 +184,7 @@ function attachData(connection) {
     if (data !== connection) return;
     if (role === "interpreter" && sessionMode) {
       connection.send({type:"session-mode",mode:sessionMode});
-      if (sessionMode === "integrated") connection.send({type:"transcript",...speechTest.snapshot()});
+      if (sessionMode === "integrated") sendSubtitlePacket({type:"transcript",...speechTest.snapshot()});
     }
     connectionActive(true);
     setStatus("Collegato alla controparte", "connected");
@@ -194,6 +211,13 @@ function attachData(connection) {
         startProjection().then(() => projectionEmit("text-mode", {mode:"integrated"}))
           .catch(e => failure("Non riesco ad aprire la proiezione testuale.",e));
       }
+    }
+    if (role === "room" && roomMode === "integrated" && payload.type === "subtitle-clear" &&
+        Number.isSafeInteger(payload.revision) && payload.revision >= roomTranscriptRevision) {
+      roomTranscriptRevision = payload.revision;
+      roomTranscript = {final:"",revision:payload.revision};
+      projectionEmit("transcript", roomTranscript);
+      log("Sottotitoli cancellati dall'Interprete.");
     }
     if (role === "room" && roomMode === "integrated" && payload.type === "transcript" &&
         Number.isSafeInteger(payload.revision) && payload.revision > roomTranscriptRevision &&
@@ -277,6 +301,9 @@ window.addEventListener("sadit:main-closing", notifySessionEnd);
 function disconnect(writeLog = true) {
   if (writeLog) notifySessionEnd();
   speechTest.stop();
+  subtitleTransmissionSuspended = false;
+  speechTest.setPublishing(true);
+  updateSubtitleTransmissionButton();
   sessionMode = null;
   roomMode = null;
   roomMediaStarted = false;
@@ -441,6 +468,9 @@ function startIntegrated() {
   }
   busy = true;
   sessionMode = "integrated";
+  subtitleTransmissionSuspended = false;
+  speechTest.setPublishing(true);
+  updateSubtitleTransmissionButton();
   speechTest.clear();
   $("startInterpreter").disabled = true;
   $("startIntegrated").disabled = true;
@@ -768,8 +798,7 @@ const speechTest = initKrokoSpeech({
   log,
   getCommands: () => voiceCommands.get(),
   onTranscript: payload => {
-    if (role === "interpreter" && sessionMode === "integrated" && data?.open)
-      data.send(payload);
+    if (!subtitleTransmissionSuspended) sendSubtitlePacket(payload);
   },
   onInterim: logInterim,
 });
@@ -834,6 +863,23 @@ function confirmDisconnect() {
 }
 $("startInterpreter").onclick = () => busy && peer ? confirmDisconnect() : startInterpreter();
 $("startIntegrated").onclick = () => busy && peer ? confirmDisconnect() : startIntegrated();
+$("clearSubtitles").onclick = () => {
+  if (role !== "interpreter" || sessionMode !== "integrated") return;
+  speechTest.clear();
+  const revision = speechTest.snapshot().revision;
+  sendSubtitlePacket({type:"subtitle-clear",revision});
+  log("Sottotitoli cancellati.");
+};
+$("suspendSubtitles").onclick = () => {
+  if (role !== "interpreter" || sessionMode !== "integrated") return;
+  subtitleTransmissionSuspended = !subtitleTransmissionSuspended;
+  speechTest.setPublishing(!subtitleTransmissionSuspended);
+  updateSubtitleTransmissionButton();
+  log(subtitleTransmissionSuspended
+    ? "Invio sottotitoli sospeso; riconoscimento ancora attivo."
+    : "Invio sottotitoli ripreso.");
+};
+updateSubtitleTransmissionButton();
 $("joinRoom").onclick = () => busy && peer ? confirmDisconnect() : joinRoom();
 $("changeSharing").onclick = changeSharing;
 $("stopSharing").onclick = stopSharing;

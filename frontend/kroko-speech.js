@@ -3,11 +3,14 @@ import { Stream } from "/wails/runtime.js";
 import { applyVoiceCommands, appendReviewedSegment } from "./voice-format.js";
 
 export function initKrokoSpeech({button,status={textContent:""},interim={textContent:""},log,getCommands=()=>[],onTranscript=()=>{},onInterim=()=>{}}) {
- let desired=false, finalText="",revision=0, socket=null, microphone=null, audio=null, worklet=null, mute=null, microphoneId="";
+ let desired=false, finalText="",revision=0, socket=null, microphone=null, audio=null, worklet=null, mute=null, microphoneId="", publishing=true, sessionStart=0;
  const show=()=>{ button.textContent=desired?"Interrompi riconoscimento":"Avvia riconoscimento"; };
  const clearPartial=()=>{interim.textContent="";onInterim("");};
  const emit=()=>onTranscript({type:"transcript",revision:++revision,final:finalText});
- function clear(){finalText="";revision=0;clearPartial();emit();}
+ // Clearing does not reset revisions: the remote projection only accepts newer snapshots.
+ function clear(){finalText="";clearPartial();emit();}
+ function setPublishing(enabled){publishing=!!enabled;}
+
  function stop(){
   desired=false;show();clearPartial();status.textContent="Riconoscimento interrotto";
   worklet?.disconnect();worklet=null;mute?.disconnect();mute=null;
@@ -16,8 +19,14 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
   socket?.close();socket=null;
  }
  function commit(text) {
-  const raw=String(text||"").trim();
-  if (!raw) return;
+  const raw=String(text??"");
+  if (!raw.trim()) return;
+  // Recognition continues while transmission is suspended. Paused segments are
+  // intentionally not added to the cumulative projection snapshot.
+  if (!publishing) {
+   log(raw,"","transcript");
+   return;
+  }
   const commands=getCommands();
   // Kroko's sentence punctuation is intentionally preserved (unlike Edge).
   const processed=applyVoiceCommands(raw,commands);
@@ -30,6 +39,7 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
   if(desired) return;
   desired=true;show();status.textContent="Caricamento Kroko…";
   try {
+   sessionStart=performance.now();
    const stream=Stream("kroko-audio");
    socket=stream;
    stream.onmessage=async event=>{
@@ -40,6 +50,8 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
     if(packet.type==="final"){commit(packet.text);clearPartial();return;}
     if(packet.type==="interim"){interim.textContent=packet.text;onInterim(packet.text);return;}
     if(packet.type!=="ready") return;
+    log("Kroko pronto", "Caricamento modello e stream: " + (packet.loadMs ?? "?") +
+      " ms · attesa totale: " + Math.round(performance.now()-sessionStart) + " ms", "diagnostic");
     try {
      microphone=await navigator.mediaDevices.getUserMedia({audio:{
        ...(microphoneId ? {deviceId:{exact:microphoneId}} : {}),
@@ -73,5 +85,5 @@ export function initKrokoSpeech({button,status={textContent:""},interim={textCon
  }
  button.onclick=()=>desired?stop():start();
  show();status.textContent="Pronto · Kroko italiano (locale)";
- return {start,stop,clear,setMicrophoneId,supported:true,get active(){return desired;},snapshot:()=>({final:finalText,revision})};
+ return {start,stop,clear,setPublishing,setMicrophoneId,supported:true,get active(){return desired;},snapshot:()=>({final:finalText,revision})};
 }

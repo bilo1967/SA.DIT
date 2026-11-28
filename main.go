@@ -30,6 +30,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(&ConfigService{}),
             application.NewService(&VoiceCommandsService{}),
+            application.NewService(&KrokoDiagnosticsService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(content),
